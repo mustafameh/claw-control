@@ -69,7 +69,19 @@ public partial class App : Application
             Log.Error("Fatal error", args.ExceptionObject as Exception);
         SessionEnding += (_, _) => Stop();
 
-        Log.Info($"Starting Claw Control {typeof(App).Assembly.GetName().Version}");
+        Log.Info($"Starting Claw Control {typeof(App).Assembly.GetName().Version} on {Device.Name} ({Device.Board})");
+        if (!Device.IsSupported)
+        {
+            // Firmware indexes, the controller chip and power limits are the Claw A8's: never
+            // write them anywhere else.
+            Log.Error($"Not an MSI Claw A8 ({Device.SupportedBoard}); nothing was changed");
+            MessageBox.Show($"Claw Control only works on the MSI Claw A8 (board {Device.SupportedBoard}).\n\n" +
+                $"This device is {(Device.Name.Length > 0 ? Device.Name : "unknown")} ({(Device.Board.Length > 0 ? Device.Board : "no board code")}), " +
+                "so Claw Control closed without changing anything.", "Claw Control", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _stopped = true;
+            Shutdown();
+            return;
+        }
         QuitFlag.Clear();
         bool firstRun = !Settings.Exists;
         _settings = Settings.Load();

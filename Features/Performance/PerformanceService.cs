@@ -14,8 +14,8 @@ public readonly record struct PowerLimits(int Spl, int Sppt, int Fppt)
 
 /// <summary>
 /// TDP modes and limits for the Claw A8 (MSI model 1T8K). Presets, limits and the write
-/// sequence are copied from MSI Center M's own code (API_UserScenario.dll), so the firmware
-/// sees exactly what it would see from MSI.
+/// sequence match what MSI Center M uses (docs/HARDWARE.md), so the firmware sees exactly what
+/// it would see from MSI.
 ///
 /// Lives on the UI thread; every firmware call goes through the HardwareWorker so the UI
 /// updates instantly and the hardware catches up in the background.

@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in Claw Control doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Claw Control supports the **MSI Claw A8** only.
+        Look through [Troubleshooting](https://github.com/mustafameh/claw-control/blob/main/docs/TROUBLESHOOTING.md) first; it may already have the answer.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Claw Control version
+      description: Settings › Apps › Installed apps › Claw Control (or the release you downloaded).
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: msi
+    attributes:
+      label: MSI Center M version
+      description: MSI Center M › Settings, or Settings › Apps › Installed apps.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Controller mode when it happened
+      options:
+        - Xbox
+        - PlayStation
+        - Desktop (mouse)
+        - Not sure
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Attach `%LOCALAPPDATA%\ClawControl\log.txt` (drag the file here). For button or navigation
+        problems, turn on `"DetailedLog": true` in `settings.json` first and reproduce the problem.
+        Look through the log before posting: it can contain app, Wi-Fi network and Bluetooth device names.

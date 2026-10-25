@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting and FAQ
+    url: https://github.com/mustafameh/claw-control/blob/main/docs/TROUBLESHOOTING.md
+    about: Common problems and their fixes.
+  - name: Security problem
+    url: https://github.com/mustafameh/claw-control/security/advisories/new
+    about: Please report security problems privately.

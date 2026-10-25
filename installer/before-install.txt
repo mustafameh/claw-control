@@ -1,0 +1,26 @@
+CLAW CONTROL - PLEASE READ
+
+Claw Control is a fast, controller-friendly quick settings panel for the MSI Claw A8. It opens
+when you press the MSI Center M button.
+
+MADE ONLY FOR THE MSI CLAW A8
+This setup only installs on an MSI Claw A8 (board MS-1T8K). It has been built and tested on
+one Claw A8 only. Other Claw models (Claw A1M, Claw 7 AI+, Claw 8 AI+) were not available to the
+author, so it has not been tested on them and they are not supported.
+
+WHAT IT DOES TO YOUR SYSTEM
+- Installs to C:\Program Files\ClawControl.
+- Adds a scheduled task named "Claw Control" that starts it at sign-in with administrator rights
+  (needed for power limits and the controller), and restarts it if it ever crashes.
+- Takes over the MSI Center M button: MSI's launcher is paused (not removed) while Claw Control
+  runs. Quitting or uninstalling hands the button back to MSI.
+- When you change something in the panel, it writes it where MSI Center M would: power limits
+  (firmware), controller settings (the controller's own memory), AMD graphics settings, display
+  and sound settings. Those stay as they are after uninstalling.
+- Keeps its settings and a log in %LOCALAPPDATA%\ClawControl. It sends nothing anywhere.
+
+Claw Control is an independent, free and open-source project (MIT license). It is not made by,
+endorsed by or affiliated with MSI, AMD, Microsoft or Sony. It comes with no warranty: use it at
+your own risk.
+
+Source code, help and bug reports: https://github.com/mustafameh/claw-control

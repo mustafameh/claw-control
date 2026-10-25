@@ -309,10 +309,10 @@ public partial class OverlayWindow : Window
         var now = DateTime.UtcNow;
         bool duplicate = command == _lastCommand && source != _lastSource && now - _lastCommandAt < DuplicateWindow;
         (_lastCommand, _lastSource, _lastCommandAt) = (command, source, now);
-        Log.Detail($"Command {command} from {source}{(duplicate ? " (same press seen twice, ignored)" : "")}");
+        var focused = FocusManager.GetFocusedElement(this) as FrameworkElement;
+        Log.Detail($"Command {command} from {source} on {Describe(focused)}{(duplicate ? " (same press seen twice, ignored)" : "")}");
         if (duplicate) return;
 
-        var focused = FocusManager.GetFocusedElement(this) as FrameworkElement;
         bool onTabs = focused != null && Tabs.Children.Contains(focused);
         bool onChip = focused == AppChip;
         switch (command)
@@ -490,6 +490,15 @@ public partial class OverlayWindow : Window
         if (!string.IsNullOrEmpty(element.Name))
             _settings.LastFocusByPage[CurrentPage.Id] = element.Name;
     }
+
+    /// <summary>Detailed log: which control a command acted on ("FillSlider Brightness").</summary>
+    static string Describe(FrameworkElement? element) => element switch
+    {
+        null => "nothing",
+        FillSlider slider => $"FillSlider {slider.Label ?? slider.Name}",
+        ContentControl { Content: string text } => $"{element.GetType().Name} {text}",
+        _ => $"{element.GetType().Name} {element.Name}".TrimEnd(),
+    };
 
     static void Invoke(FrameworkElement? element)
     {

@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest something Claw Control could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like?
+      description: The setting or control, and where you'd expect it in the panel.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would you use it for?
+      description: Claw Control stays small and fast on purpose, so the use case helps decide.
+  - type: checkboxes
+    id: device
+    attributes:
+      label: Device
+      options:
+        - label: I use an MSI Claw A8 (other models aren't supported yet).

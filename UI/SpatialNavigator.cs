@@ -23,7 +23,15 @@ public static class SpatialNavigator
     public static FrameworkElement? Next(FrameworkElement? current, FrameworkElement root, NavCommand direction)
     {
         var controls = Controls(root).ToList();
-        if (current == null || !controls.Contains(current)) return controls.FirstOrDefault();
+        if (current == null || !root.IsAncestorOf(current)) return controls.FirstOrDefault();
+        if (!controls.Contains(current))
+        {
+            // Focus sits inside a control (e.g. a slider's thumb) or on a plain element: carry on
+            // from the control around it, else the one nearest to it, never jump to the top.
+            var owner = OwnerControl(current, root, controls);
+            if (owner == null) return Nearest(root, Mid(Bounds(current, root)));
+            current = owner;
+        }
 
         var from = Bounds(current, root);
         FrameworkElement? best = null;
@@ -82,6 +90,13 @@ public static class SpatialNavigator
             foreach (var nested in Controls(child))
                 yield return nested;
         }
+    }
+
+    static FrameworkElement? OwnerControl(DependencyObject element, FrameworkElement root, List<FrameworkElement> controls)
+    {
+        for (var node = VisualTreeHelper.GetParent(element); node != null && node != root; node = VisualTreeHelper.GetParent(node))
+            if (node is FrameworkElement parent && controls.Contains(parent)) return parent;
+        return null;
     }
 
     static Rect Bounds(FrameworkElement element, FrameworkElement root) =>

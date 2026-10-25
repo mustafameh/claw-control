@@ -16,3 +16,6 @@ log.txt.old
 settings.json
 snapshot.png
 captures/
+
+# Release files (build-release.ps1)
+dist/

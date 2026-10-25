@@ -58,7 +58,8 @@ public sealed class AppsPowerScreen : UserControl, IPage
 
         var power = new UniformGrid { Rows = 1, Margin = new Thickness(4, 12, 4, 2) };
         power.Children.Add(PowerButton("", "Sleep", RunningApps.Sleep, confirm: false));
-        power.Children.Add(PowerButton(Ui.LineIcon("HibernateIcon", 20), "Hibernate", RunningApps.Hibernate, confirm: false));
+        if (Device.CanHibernate)  // hibernation can be switched off in Windows (powercfg /h off)
+            power.Children.Add(PowerButton(Ui.LineIcon("HibernateIcon", 20), "Hibernate", RunningApps.Hibernate, confirm: false));
         power.Children.Add(PowerButton("", "Restart", RunningApps.Restart, confirm: true));
         power.Children.Add(PowerButton("", "Shut down", RunningApps.ShutDown, confirm: true));
 

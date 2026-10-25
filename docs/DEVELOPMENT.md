@@ -12,13 +12,23 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 - Target is `net10.0-windows10.0.19041.0` (WinRT media sessions for now playing; adds ~25 MB of
   `Microsoft.Windows.SDK.NET.dll`). Sound uses NAudio.Wasapi (Core Audio); FPS uses Intel
   PresentMon 2.6.0 (`Tools/PresentMon.exe`, runs only while the overlay shows FPS).
-- Install: run `deploy.ps1 -Source bin\Release\net10.0-windows10.0.19041.0\win-x64` **elevated**.
-  It asks a running copy to quit first (that hands the MSI button back cleanly), copies to
-  `C:\Program Files\ClawControl`, (re)registers the "Claw Control" scheduled task and starts it.
-  The task runs at the Highest run level (admin at every login without a prompt), priority 3, with
-  two triggers: logon, and 10 s after a crash (Windows' "Application Error" event 1000 naming
-  `ClawControl.exe`). Task Scheduler's restart-on-failure only covers a start that fails.
-  `-EnableTakeover` turns the MSI button takeover back on in the saved settings.
+- Install a development build:
+  `installer\install.ps1 -Source bin\Release\net10.0-windows10.0.19041.0\win-x64 -Yes` (asks for
+  admin rights once). It asks a running copy to quit first (that hands the MSI button back
+  cleanly), copies to `C:\Program Files\ClawControl`, (re)registers the "Claw Control" scheduled
+  task and starts it. `-Yes` skips the questions; a device other than the Claw A8 is still
+  refused.
+- The task (`installer\task.ps1`, shared by every install route) runs at the Highest run level
+  (admin at every login without a prompt), priority 3, with two triggers: logon, and 10 s after a
+  crash (Windows' "Application Error" event 1000 naming `ClawControl.exe`). Task Scheduler's
+  restart-on-failure only covers a start that fails.
+- Release files: `build-release.ps1` (needs Inno Setup 6) builds `dist\ClawControl-Setup-<version>.exe`
+  (`installer\ClawControl.iss`), `dist\ClawControl-<version>-win-x64.zip` (Install.cmd /
+  Uninstall.cmd + `scripts\` + `app\`) and `dist\SHA256SUMS.txt`. The version comes from
+  `ClawControl.csproj`. Both installers check the board (MS-1T8K) and refuse anything else, and
+  warn when MSI Center M or the AMD driver is missing.
+- Device check: `Hardware/Device` reads the BIOS data from the registry (instant). On anything but
+  board MS-1T8K the app shows a message and exits before touching any hardware.
 - Start Claw Control through the task, not as a child of another program: a process started from
   inside a packaged (MSIX) app joins that package, gets its AppData redirected and closes with it.
 - Data: `%LOCALAPPDATA%\ClawControl\log.txt` (rotates at 1 MB) and `settings.json`.
@@ -41,6 +51,21 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 - ReadyToRun (precompiled) builds were measured and bring nothing here (same compile time and
   startup CPU, +31 MB). Measured cost: panel closed ≈ 0.3 % of one core (≈ 1 % with the overlay
   on, plus PresentMon 0.1 %), panel open ≈ 15 %, ~240 MB working set, ~3 s CPU at startup.
+
+## Repository layout
+
+| Path | What |
+|---|---|
+| `App.xaml.cs`, `Program.cs` | Startup: single instance, device check, building every service, signals |
+| `Core/` | Logging, settings, background workers (`HardwareWorker`, `LatestOnly`) |
+| `Hardware/` | Everything that talks to the device or Windows (firmware, controller chip, AMD, audio, display, radios…) |
+| `Features/` | The tabs and screens (Quick = `Performance/`, `Graphics/`, `Controller/`, `Apps/`, `Network/`, `Sound/`, `Overlay/`) |
+| `Input/` | Gamepad polling, the input blocker, key translation |
+| `Monitoring/` | Performance overlay: sensors, PresentMon, the overlay window |
+| `UI/` | The panel window, theme and building blocks, glass, selection drop, D-pad navigation |
+| `Tools/PresentMon.exe` | Intel PresentMon 2.6.0 (MIT), shipped with the app |
+| `installer/` | Setup script (Inno Setup), zip install / uninstall scripts, the scheduled task |
+| `docs/` | Install guide, user guide, troubleshooting, this file, hardware notes, images |
 
 ## Architecture
 
@@ -76,7 +101,8 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 3. Read state in `OnShown` (show cached values first, refresh in the background), stop listeners
    in `OnHidden`. Nothing runs or polls while the panel is closed unless the user turned it on.
 4. Check D-pad paths: every control reachable, left / right on sliders change values, A works.
-5. Build, install with `deploy.ps1`, check the log, and the look with the capture signal.
+5. Build, install with `installer\install.ps1`, check the log, and the look with the capture
+   signal.
 
 ## Design rules
 
