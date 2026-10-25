@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Editors
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Run-time files, if a test run kept them next to the project (CLAWCONTROL_DATA_DIR)
+log.txt
+log.txt.old
+settings.json
+snapshot.png
+captures/

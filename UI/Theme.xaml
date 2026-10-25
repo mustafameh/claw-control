@@ -1,0 +1,663 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="clr-namespace:ClawControl.UI">
+
+    <Color x:Key="AccentColor">#FF4C9AFF</Color>
+    <!-- Glass: the window's backdrop is Windows' blurred acrylic; this tint sits on top of it
+         (and is what you see when Windows turns transparency off). Surfaces are see-through whites. -->
+    <!-- iOS Control Center rules: levels and choices light up white; on/off things light up in
+         their own colour (switch green, each mode its own). -->
+    <SolidColorBrush x:Key="PanelBrush" Color="#6626201E"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#1FFFFFFF"/>
+    <SolidColorBrush x:Key="CardHoverBrush" Color="#47FFFFFF"/>
+    <SolidColorBrush x:Key="TrackBrush" Color="#33FFFFFF"/>
+    <SolidColorBrush x:Key="BarTrackBrush" Color="#26FFFFFF"/>
+    <SolidColorBrush x:Key="BarFillBrush" Color="#F7FFFFFF"/>
+    <SolidColorBrush x:Key="OnFillBrush" Color="#FF16161A"/>
+    <SolidColorBrush x:Key="SwitchOnBrush" Color="#FF34C759"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#4D4C9AFF"/>
+    <SolidColorBrush x:Key="OnAccentBrush" Color="#FF06213F"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#FFF2F4F8"/>
+    <SolidColorBrush x:Key="SubtleTextBrush" Color="#FFA4ACBA"/>
+    <!-- D-pad focus is the glass drop (UI/SelectionLens), not a ring: the templates' focus
+         borders stay in place (same layout) but draw nothing. -->
+    <SolidColorBrush x:Key="FocusBrush" Color="Transparent"/>
+    <!-- Glass edges, lit from the top-left like Liquid Glass: bright corner, faint sides, a
+         softer glint at the bottom-right. Panel rim and the selection drop's rim. -->
+    <LinearGradientBrush x:Key="GlassRimBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#C0FFFFFF" Offset="0"/>
+        <GradientStop Color="#26FFFFFF" Offset="0.16"/>
+        <GradientStop Color="#0AFFFFFF" Offset="0.4"/>
+        <GradientStop Color="#0AFFFFFF" Offset="0.62"/>
+        <GradientStop Color="#26FFFFFF" Offset="0.86"/>
+        <GradientStop Color="#78FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="LensRimBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#E6FFFFFF" Offset="0"/>
+        <GradientStop Color="#40FFFFFF" Offset="0.3"/>
+        <GradientStop Color="#1AFFFFFF" Offset="0.6"/>
+        <GradientStop Color="#73FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="LensFillBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#1CFFFFFF" Offset="0"/>
+        <GradientStop Color="#0AFFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PanelSheenBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#12FFFFFF" Offset="0"/>
+        <GradientStop Color="#00FFFFFF" Offset="0.3"/>
+    </LinearGradientBrush>
+
+    <!-- Brand logos (Simple Icons, 24×24). Draw with the Logo style; they take the text colour. -->
+    <Geometry x:Key="XboxLogo">F1 M4.102 21.033C6.211 22.881 8.977 24 12 24c3.026 0 5.789-1.119 7.902-2.967 1.877-1.912-4.316-8.709-7.902-11.417-3.582 2.708-9.779 9.505-7.898 11.417zm11.16-14.406c2.5 2.961 7.484 10.313 6.076 12.912C23.002 17.48 24 14.861 24 12.004c0-3.34-1.365-6.362-3.570-8.536 0 0-.027-.022-.082-.042-.063-.022-.152-.045-.281-.045-.592 0-1.985.434-4.805 3.246zM3.654 3.426c-.057.02-.082.041-.086.042C1.365 5.642 0 8.664 0 12.004c0 2.854.998 5.473 2.661 7.533-1.401-2.605 3.579-9.951 6.080-12.910-2.820-2.813-4.216-3.245-4.806-3.245-.131 0-.223.021-.281.046v-.002zM12 3.551S9.055 1.828 6.755 1.746c-.903-.033-1.454.295-1.521.339C7.379.646 9.659 0 11.984 0H12c2.334 0 4.605.646 6.766 2.085-.068-.046-.615-.372-1.520-.339C14.946 1.828 12 3.545 12 3.545v.006z</Geometry>
+    <Geometry x:Key="PlayStationLogo">F1 M8.984 2.596v17.547l3.915 1.261V6.688c0-.69.304-1.151.794-.991.636.18.76.814.76 1.505v5.875c2.441 1.193 4.362-.002 4.362-3.152 0-3.237-1.126-4.675-4.438-5.827-1.307-.448-3.728-1.186-5.390-1.502zm4.656 16.241l6.296-2.275c.715-.258.826-.625.246-.818-.586-.192-1.637-.139-2.357.123l-4.205 1.5V14.98l.24-.085s1.201-.42 2.913-.615c1.696-.18 3.785.03 5.437.661 1.848.601 2.04 1.472 1.576 2.072-.465.6-1.622 1.036-1.622 1.036l-8.544 3.107V18.86zM1.807 18.6c-1.9-.545-2.214-1.668-1.352-2.32.801-.586 2.16-1.052 2.16-1.052l5.615-2.013v2.313L4.205 17c-.705.271-.825.632-.239.826.586.195 1.637.15 2.343-.12L8.247 17v2.074c-.12.03-.256.044-.39.073-1.939.331-3.996.196-6.038-.479z</Geometry>
+    <Style x:Key="Logo" TargetType="Path">
+        <Setter Property="Fill" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+    </Style>
+
+    <!-- Line icons Segoe Fluent Icons doesn't have (24×24, drawn with the LineIcon style; Ui.LineIcon). -->
+    <Geometry x:Key="GyroIcon">M10.3,5 H13.7 A1.8,1.8 0 0 1 15.5,6.8 V17.2 A1.8,1.8 0 0 1 13.7,19 H10.3 A1.8,1.8 0 0 1 8.5,17.2 V6.8 A1.8,1.8 0 0 1 10.3,5 Z M4.5,8.5 A9,9 0 0 0 4.5,15.5 M19.5,8.5 A9,9 0 0 1 19.5,15.5 M2.9,14 L4.5,15.6 L6.1,14 M21.1,10 L19.5,8.4 L17.9,10</Geometry>
+    <Geometry x:Key="StickIcon">M3.5,12 A8.5,8.5 0 1 0 20.5,12 A8.5,8.5 0 1 0 3.5,12 Z M9.8,12 A2.2,2.2 0 1 0 14.2,12 A2.2,2.2 0 1 0 9.8,12 Z</Geometry>
+    <Geometry x:Key="FrameGenIcon">M5,7 H12 A2,2 0 0 1 14,9 V15 A2,2 0 0 1 12,17 H5 A2,2 0 0 1 3,15 V9 A2,2 0 0 1 5,7 Z M17.5,8 V16 M21,10 V14</Geometry>
+    <Geometry x:Key="UpscaleIcon">M4.5,12 H9.5 A1.5,1.5 0 0 1 11,13.5 V18.5 A1.5,1.5 0 0 1 9.5,20 H4.5 A1.5,1.5 0 0 1 3,18.5 V13.5 A1.5,1.5 0 0 1 4.5,12 Z M13,4 H20 V11 M20,4 L12,12</Geometry>
+    <Geometry x:Key="HibernateIcon">M12,3 V15 M7,10 L12,15 L17,10 M5,20 H19</Geometry>
+    <Geometry x:Key="SharpenIcon">M12,3 L20,12 L12,21 L4,12 Z M12,3 V21</Geometry>
+    <Geometry x:Key="FreeSyncIcon">M2.5,12 C4.5,7.5 6.8,7.5 8.8,12 C10.8,16.5 13.1,16.5 15.1,12 C17.1,7.5 19.4,7.5 21.5,12</Geometry>
+    <Geometry x:Key="TriggerIcon">M8,3 H16 A4,4 0 0 1 20,7 V9 H4 V7 A4,4 0 0 1 8,3 Z M12,12.5 V20.5 M8.5,17 L12,20.5 L15.5,17</Geometry>
+    <Style x:Key="LineIcon" TargetType="Path">
+        <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        <Setter Property="StrokeThickness" Value="1.8"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+    </Style>
+
+    <Style x:Key="SectionLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Margin" Value="4,18,0,6"/>
+    </Style>
+
+    <!-- Thin line between groups; the buttons themselves say what the group is. -->
+    <Style x:Key="Divider" TargetType="Border">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{StaticResource TrackBrush}"/>
+        <Setter Property="Margin" Value="10,12,10,8"/>
+    </Style>
+
+    <Style x:Key="CardDetail" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+
+    <Style x:Key="SliderHeader" TargetType="DockPanel">
+        <Setter Property="Margin" Value="6,10,6,4"/>
+    </Style>
+
+    <Style x:Key="BumperHint" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextElement.FontSize" Value="12"/>
+        <Setter Property="TextElement.Foreground" Value="{StaticResource SubtleTextBrush}"/>
+    </Style>
+
+    <!-- Page tab: tap to switch. Not focusable, so the D-pad stays inside the page (LB / RB switch pages). -->
+    <Style x:Key="TabButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+        <Setter Property="Padding" Value="14,5"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Tab" Background="Transparent" CornerRadius="12" Padding="{TemplateBinding Padding}"
+                            BorderThickness="2" BorderBrush="Transparent">
+                        <ContentPresenter x:Name="Label" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- The selected tab's pill slides between tabs (OverlayWindow.MoveTabPill). -->
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Tab" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Tab" Property="Opacity" Value="0.7"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Big card button. Tag="selected" marks the active choice. -->
+    <Style x:Key="CardButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="MinHeight" Value="62"/>
+        <Setter Property="Margin" Value="4"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Card" Background="{TemplateBinding Background}" CornerRadius="14"
+                            BorderThickness="2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter TargetName="Card" Property="Background" Value="{StaticResource BarFillBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource OnFillBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Card" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Small toggle chip for grids of options (overlay position and numbers). -->
+    <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
+        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="Margin" Value="3"/>
+        <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- A mode: an icon in a circle that lights up in the mode's own colour (Background) when
+         it's the active one, like iOS Control Center toggles. -->
+    <Style x:Key="ModeButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="Width" Value="56"/>
+        <Setter Property="Height" Value="56"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Ring" CornerRadius="28" BorderThickness="2" BorderBrush="Transparent" Padding="3">
+                        <Grid x:Name="Face">
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="23"/>
+                            <!-- The mode's colour fades in and out instead of snapping. -->
+                            <Border x:Name="Lit" Background="{TemplateBinding Background}" CornerRadius="23" Opacity="0"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Lit" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"/></Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Lit" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/></Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Face" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- One-line row with an on/off switch on the right. Tag="selected" = on (the switch turns blue). -->
+    <Style x:Key="SwitchButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Margin" Value="4"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Card" Background="{TemplateBinding Background}" CornerRadius="12"
+                            BorderThickness="2" BorderBrush="Transparent" Padding="14,6">
+                        <DockPanel>
+                            <!-- The green fades in and the knob springs across (no snapping). -->
+                            <Grid DockPanel.Dock="Right" Width="42" Height="24" VerticalAlignment="Center">
+                                <Border CornerRadius="12" Background="{StaticResource TrackBrush}"/>
+                                <Border x:Name="On" CornerRadius="12" Background="{StaticResource SwitchOnBrush}" Opacity="0"/>
+                                <Ellipse x:Name="Knob" Width="18" Height="18" Margin="3,0"
+                                         Fill="{StaticResource TextBrush}" HorizontalAlignment="Left">
+                                    <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Grid>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="18" Duration="0:0:0.35"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="0" Duration="0:0:0.35"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Card" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Round icon button (media controls). Content is a Segoe Fluent Icons glyph. -->
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Margin" Value="1,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Circle" Background="Transparent" CornerRadius="20" BorderThickness="2" BorderBrush="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Circle" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Circle" Property="Background" Value="{StaticResource CardHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.35"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The header's app chip (opens Apps & power): a small pill with the D-pad ring. -->
+    <Style x:Key="HeaderChip" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Pill" Background="{StaticResource CardBrush}" CornerRadius="12" BorderThickness="2"
+                            BorderBrush="Transparent" Padding="7,3,9,3">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Pill" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Pill" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A row inside a grouped card (Controller tab): the card draws the background, rows draw
+         only the D-pad ring. RowSwitchButton adds the on/off switch (Tag="selected" = on). -->
+    <Style x:Key="RowButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="MinHeight" Value="50"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Row" Background="Transparent" CornerRadius="14" BorderThickness="2"
+                            BorderBrush="Transparent" Padding="10,5,12,5">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="RowSwitchButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="MinHeight" Value="50"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Row" Background="Transparent" CornerRadius="14" BorderThickness="2"
+                            BorderBrush="Transparent" Padding="10,5,10,5">
+                        <DockPanel>
+                            <!-- The green fades in and the knob springs across (no snapping). -->
+                            <Grid DockPanel.Dock="Right" Width="42" Height="24" VerticalAlignment="Center">
+                                <Border CornerRadius="12" Background="{StaticResource TrackBrush}"/>
+                                <Border x:Name="On" CornerRadius="12" Background="{StaticResource SwitchOnBrush}" Opacity="0"/>
+                                <Ellipse x:Name="Knob" Width="18" Height="18" Margin="3,0"
+                                         Fill="{StaticResource TextBrush}" HorizontalAlignment="Left">
+                                    <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Grid>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="18" Duration="0:0:0.35"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="0" Duration="0:0:0.35"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A colour choice (lights): a dot in its Background colour; white ring = chosen, outer ring = D-pad. -->
+    <Style x:Key="SwatchButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Width" Value="46"/>
+        <Setter Property="Height" Value="46"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Focus" CornerRadius="23" BorderThickness="2" BorderBrush="Transparent" Padding="3">
+                        <Border x:Name="Chosen" CornerRadius="18" BorderThickness="2" BorderBrush="Transparent" Padding="2">
+                            <Ellipse Fill="{TemplateBinding Background}"/>
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter TargetName="Chosen" Property="BorderBrush" Value="{StaticResource TextBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Focus" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A spot on the mini screen (overlay position). Big enough to tap, drawn as a small bar. -->
+    <Style x:Key="SpotButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <!-- Narrower than a third of the mini screen: overlapping spots confuse D-pad left/right. -->
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Ring" Background="Transparent" CornerRadius="7" BorderThickness="2" BorderBrush="Transparent">
+                        <Border x:Name="Bar" Width="22" Height="10" CornerRadius="4" Background="{StaticResource TrackBrush}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource BarFillBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Ring" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TrackEmpty" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TrackFilled" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent">
+                        <Border Height="6" CornerRadius="3" Background="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Pill that fills up; icon/label left and value right sit inside it (see FillSlider.cs).
+         The invisible thumb follows the fill edge so it can still be dragged by touch. -->
+    <Style TargetType="ui:FillSlider">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="IsSnapToTickEnabled" Value="True"/>
+        <Setter Property="TickFrequency" Value="1"/>
+        <Setter Property="SmallChange" Value="1"/>
+        <Setter Property="LargeChange" Value="5"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="Margin" Value="4,3"/>
+        <Setter Property="Fill" Value="{StaticResource BarFillBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ui:FillSlider">
+                    <Border x:Name="Frame" Height="42" CornerRadius="21" Background="{StaticResource BarTrackBrush}"
+                            BorderThickness="2" BorderBrush="Transparent">
+                        <Grid>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Focusable="False" IsTabStop="False" Command="{x:Static Slider.DecreaseLarge}">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border CornerRadius="19" Background="{Binding Fill, RelativeSource={RelativeSource AncestorType=ui:FillSlider}}"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource TrackEmpty}" Command="{x:Static Slider.IncreaseLarge}"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="1" Focusable="False">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="Transparent" Margin="-18,0"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                            <!-- Light text (over the empty part). -->
+                            <DockPanel Margin="14,0" TextElement.Foreground="{StaticResource TextBrush}">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{TemplateBinding ValueText}" FontWeight="SemiBold"
+                                               IsHitTestVisible="False" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PART_More" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="13" Background="Transparent"
+                                               Padding="8,8,0,8" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
+                                            VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <TextBlock x:Name="GlyphText" Text="{TemplateBinding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Image x:Name="IconImage" Source="{TemplateBinding Icon}" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Viewbox x:Name="LineIconView" Width="17" Height="17" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Canvas Width="24" Height="24"><Path Style="{StaticResource LineIcon}" Data="{TemplateBinding LineIcon}"/></Canvas>
+                                    </Viewbox>
+                                    <TextBlock x:Name="LabelText" Text="{TemplateBinding Label}" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DockPanel>
+                            <!-- The same text in dark, cut to the filled part (FillSlider.UpdateClip). -->
+                            <DockPanel x:Name="PART_DarkLayer" Margin="14,0" IsHitTestVisible="False"
+                                       TextElement.Foreground="{StaticResource OnFillBrush}">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{TemplateBinding ValueText}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DarkMore" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="13" Padding="8,8,0,8" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <TextBlock x:Name="DarkGlyph" Text="{TemplateBinding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Image x:Name="DarkIcon" Source="{TemplateBinding Icon}" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Viewbox x:Name="DarkLineIcon" Width="17" Height="17" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Canvas Width="24" Height="24"><Path Style="{StaticResource LineIcon}" Data="{TemplateBinding LineIcon}"/></Canvas>
+                                    </Viewbox>
+                                    <TextBlock x:Name="DarkLabel" Text="{TemplateBinding Label}" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Glyph" Value="{x:Null}">
+                            <Setter TargetName="GlyphText" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="DarkGlyph" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="Icon" Value="{x:Null}">
+                            <Setter TargetName="IconImage" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="DarkIcon" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="LineIcon" Value="{x:Null}">
+                            <Setter TargetName="LineIconView" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="DarkLineIcon" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="Label" Value="{x:Null}">
+                            <Setter TargetName="LabelText" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="DarkLabel" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="ShowMore" Value="True">
+                            <Setter TargetName="PART_More" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="DarkMore" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Wide slider for thumbs and touch; D-pad left/right moves it 1 W at a time. -->
+    <Style x:Key="PanelSlider" TargetType="Slider">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="IsSnapToTickEnabled" Value="True"/>
+        <Setter Property="TickFrequency" Value="1"/>
+        <Setter Property="SmallChange" Value="1"/>
+        <Setter Property="LargeChange" Value="5"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Border x:Name="Frame" CornerRadius="12" Background="{StaticResource CardBrush}"
+                            BorderThickness="2" BorderBrush="Transparent" Padding="16,0" Height="46">
+                        <Grid>
+                            <Border Height="6" CornerRadius="3" Background="{StaticResource TrackBrush}" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource TrackFilled}" Command="{x:Static Slider.DecreaseLarge}"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource TrackEmpty}" Command="{x:Static Slider.IncreaseLarge}"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="22" Height="22" Focusable="False">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Fill="{StaticResource TextBrush}"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

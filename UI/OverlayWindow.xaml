@@ -1,0 +1,125 @@
+<Window x:Class="ClawControl.UI.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Claw Control" Width="420" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+        Background="Transparent" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="15"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <!-- Glass: the blur is a separate rounded layer right under this window (UI/GlassBackdrop);
+         this window is see-through outside the rounded card, which draws the tint and a lit
+         glass rim (one device pixel at the Claw's 150 %). Windows' own backdrops can't be rounded
+         more than a few pixels. -->
+    <Border x:Name="Card" Background="{StaticResource PanelBrush}" CornerRadius="26"
+            BorderThickness="0.67" BorderBrush="{StaticResource GlassRimBrush}">
+        <Grid>
+        <Border CornerRadius="26" Background="{StaticResource PanelSheenBrush}" IsHitTestVisible="False"/>
+        <Grid Margin="16,14,16,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- One line: time and the app chip on the left; Bluetooth, Wi-Fi and battery on the right.
+                 The chip takes what's left (its name is cut short first). -->
+            <DockPanel Margin="4,0" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                <!-- Bright = connected (with its name), faint = on, crossed out = off. -->
+                <StackPanel x:Name="BluetoothPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed">
+                    <Grid VerticalAlignment="Center">
+                        <TextBlock x:Name="BluetoothIcon" Text="&#xE702;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15"/>
+                        <Path x:Name="BluetoothSlash" Data="M0.5,0.5 L14.5,14.5" Stroke="{StaticResource TextBrush}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.35" Visibility="Collapsed"/>
+                    </Grid>
+                    <TextBlock x:Name="BluetoothName" FontSize="12" Foreground="{StaticResource SubtleTextBrush}" MaxWidth="84"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel x:Name="WifiPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed">
+                    <Grid VerticalAlignment="Center">
+                        <TextBlock x:Name="WifiBase" Text="&#xE701;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15"/>
+                        <TextBlock x:Name="WifiBars" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15" Visibility="Collapsed"/>
+                        <Path x:Name="WifiSlash" Data="M0.5,0.5 L14.5,14.5" Stroke="{StaticResource TextBrush}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.35" Visibility="Collapsed"/>
+                    </Grid>
+                    <TextBlock x:Name="WifiName" FontSize="12" Foreground="{StaticResource SubtleTextBrush}" MaxWidth="84"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel x:Name="BatteryPanel" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="ChargingBolt" Text="&#xE945;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <!-- Battery outline whose fill follows the charge level. -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Border Width="28" Height="14" CornerRadius="3" BorderThickness="1.5"
+                                BorderBrush="{StaticResource TextBrush}" Padding="1.5">
+                            <Border x:Name="BatteryFill" HorizontalAlignment="Left" CornerRadius="1.5"
+                                    Background="{StaticResource TextBrush}"/>
+                        </Border>
+                        <Border Width="2.5" Height="6" CornerRadius="0,1.5,1.5,0" Background="{StaticResource TextBrush}"/>
+                    </StackPanel>
+                    <TextBlock x:Name="BatteryText" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+                </StackPanel>
+                <TextBlock x:Name="ClockText" DockPanel.Dock="Left" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <!-- The app that was in front (or a power sign): opens Apps & power, like Y. -->
+                <Button x:Name="AppChip" Style="{StaticResource HeaderChip}" HorizontalAlignment="Left" Margin="8,0,0,0" Click="AppChip_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <Image x:Name="AppChipIcon" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="AppChipName" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="AppChipGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Margin="5,1,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+
+            <!-- Pages as a pill switch, changed with LB / RB or by tapping. -->
+            <Grid Grid.Row="1" Margin="0,12,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource BumperHint}"><TextBlock Text="LB"/></Border>
+                <Border Grid.Column="1" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="3" Margin="8,0">
+                    <Grid x:Name="TabRow">
+                        <!-- The selected tab's pill; slides to the new tab (MoveTabPill). -->
+                        <Border x:Name="TabPill" HorizontalAlignment="Left" Background="{StaticResource CardHoverBrush}"
+                                CornerRadius="12" IsHitTestVisible="False" Width="0">
+                            <Border.RenderTransform><TranslateTransform x:Name="TabPillMove"/></Border.RenderTransform>
+                        </Border>
+                        <UniformGrid x:Name="Tabs" Rows="1"/>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource BumperHint}"><TextBlock Text="RB"/></Border>
+            </Grid>
+
+            <ScrollViewer x:Name="PageScroller" Grid.Row="2" VerticalScrollBarVisibility="Hidden"
+                          Focusable="False" PanningMode="VerticalOnly">
+                <ContentControl x:Name="PageHost" Focusable="False"/>
+            </ScrollViewer>
+
+            <!-- Y opens Apps & power (tap works too); A / B as always. -->
+            <Button Grid.Row="3" HorizontalAlignment="Left" Margin="4,10,0,0" Focusable="False" Click="AppChip_Click" Cursor="Hand">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border Style="{StaticResource BumperHint}"><TextBlock Text="Y"/></Border>
+                            <TextBlock Text="&#xE7E8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                                       Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,4,0">
+                <Border Style="{StaticResource BumperHint}"><TextBlock Text="A"/></Border>
+                <TextBlock x:Name="AcceptHint" Text="Select" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,16,0" VerticalAlignment="Center"/>
+                <Border Style="{StaticResource BumperHint}"><TextBlock Text="B"/></Border>
+                <TextBlock Text="Close" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- The glass drop over the selected control (UI/SelectionLens); never takes input. -->
+            <Canvas x:Name="LensLayer" Grid.RowSpan="4" IsHitTestVisible="False"/>
+        </Grid>
+        </Grid>
+    </Border>
+</Window>
