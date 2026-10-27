@@ -91,7 +91,8 @@ installed. Other Claw models use different firmware and are not supported.
   foreground doesn't stop them, nor Steam Big Picture. While the panel is open the chip's
   working memory gets a temporary mapping (`ControllerService.PanelMapping`, `ClawPad.SetOverlay`):
   the panel's buttons send keyboard keys (`Input/PanelKeys`), which `DesktopInputBlocker` takes
-  before any app sees them (raw-input readers included); X, the stick clicks, View, Menu, LT and
+  before any app sees them (raw-input readers included); X sends numpad 1 (140, the app
+  switcher's End); the stick clicks, View, Menu, LT and
   RT map to 255 (nothing; let through while the Triggers screen's live meters show); the gyro
   is off. XInput then sees no buttons and no triggers; the controller stays connected. Never
   saved (no SyncToROM while it's on); 4 messages, ~15 ms on and ~15 ms off. It comes off only

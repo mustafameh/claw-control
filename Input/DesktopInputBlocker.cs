@@ -423,6 +423,7 @@ public sealed class DesktopInputBlocker
         0x1B or 0x08 => NavCommand.Back,         // Esc, Backspace
         0x21 or 0x51 => NavCommand.PrevPage,     // Page Up, Q (keyboards)
         0x22 or 0x45 => NavCommand.NextPage,     // Page Down, E (keyboards)
+        0x58 => NavCommand.Action,               // X (keyboards)
         _ => null,
     };
 

@@ -6,14 +6,42 @@
         Background="Transparent" Foreground="{StaticResource TextBrush}"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="15"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
-    <!-- Glass: the blur is a separate rounded layer right under this window (UI/GlassBackdrop);
+    <!-- Glass: the blur is a separate rounded layer right under the card (UI/GlassBackdrop);
          this window is see-through outside the rounded card, which draws the tint and a lit
          glass rim (one device pixel at the Claw's 150 %). Windows' own backdrops can't be rounded
-         more than a few pixels. -->
-    <Border x:Name="Card" Background="{StaticResource PanelBrush}" CornerRadius="26"
+         more than a few pixels. Around the card: room for its soft shadow. -->
+    <!-- Root: the app switcher (Features/Apps/AppSwitcher) on the left, the card on the right;
+         scaled as a whole by PlaceInCorner. -->
+    <Grid x:Name="Root">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border x:Name="SwitcherHost" VerticalAlignment="Top"/>
+    <Grid x:Name="Frame" Grid.Column="1">
+    <!-- The card floats: a faint halo hugging its edge and a soft shadow below, drawn only
+         outside it (ShadowLayer is clipped to the card's outside; the card is see-through).
+         Blurred once and kept as a bitmap, so it costs nothing while the panel animates. -->
+    <Grid x:Name="ShadowLayer" IsHitTestVisible="False">
+        <Border Margin="44,46,44,52" CornerRadius="26" Background="#66000000">
+            <Border.Effect><BlurEffect Radius="48" RenderingBias="Performance"/></Border.Effect>
+            <Border.CacheMode><BitmapCache/></Border.CacheMode>
+        </Border>
+        <Border Margin="44,32,44,66" CornerRadius="26" Background="#29000000">
+            <Border.Effect><BlurEffect Radius="6" RenderingBias="Performance"/></Border.Effect>
+            <Border.CacheMode><BitmapCache/></Border.CacheMode>
+        </Border>
+    </Grid>
+    <Border x:Name="Card" Margin="44,32,44,66" Background="{StaticResource PanelBrush}" CornerRadius="26"
             BorderThickness="0.67" BorderBrush="{StaticResource GlassRimBrush}">
         <Grid>
         <Border CornerRadius="26" Background="{StaticResource PanelSheenBrush}" IsHitTestVisible="False"/>
+        <!-- Thickness of the glass: a faint lit band just inside the rim, and a soft glow fading inward. -->
+        <Border CornerRadius="25" BorderThickness="2" BorderBrush="{StaticResource PanelBandBrush}" IsHitTestVisible="False"/>
+        <Border CornerRadius="25" BorderThickness="3" BorderBrush="#08FFFFFF" IsHitTestVisible="False">
+            <Border CornerRadius="22" BorderThickness="3" BorderBrush="#05FFFFFF">
+                <Border CornerRadius="19" BorderThickness="3" BorderBrush="#03FFFFFF">
+                    <Border CornerRadius="16" BorderThickness="3" BorderBrush="#02FFFFFF"/>
+                </Border>
+            </Border>
+        </Border>
         <Grid Margin="16,14,16,12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -113,8 +141,11 @@
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,4,0">
                 <Border Style="{StaticResource BumperHint}"><TextBlock Text="A"/></Border>
                 <TextBlock x:Name="AcceptHint" Text="Select" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,16,0" VerticalAlignment="Center"/>
+                <!-- X only does something in the app switcher (ends an app; outside it X does nothing, so a stray press can't end one). -->
+                <Border x:Name="ActionKey" Style="{StaticResource BumperHint}" Visibility="Collapsed"><TextBlock Text="X"/></Border>
+                <TextBlock x:Name="ActionHint" Text="End" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,16,0" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <Border Style="{StaticResource BumperHint}"><TextBlock Text="B"/></Border>
-                <TextBlock Text="Close" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="BackHint" Text="Close" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- The glass drop over the selected control (UI/SelectionLens); never takes input. -->
@@ -122,4 +153,6 @@
         </Grid>
         </Grid>
     </Border>
+    </Grid>
+    </Grid>
 </Window>

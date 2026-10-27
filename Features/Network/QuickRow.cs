@@ -21,6 +21,9 @@ public sealed class QuickRow : UserControl
     readonly ControllerService _pad;
     readonly Connectivity _net;
     readonly Button _mode = new() { Tag = "selected" };
+
+    /// <summary>The mode circle (Xbox / mouse): where the Quick tab opens.</summary>
+    public FrameworkElement Mode => _mode;
     readonly Tile _wifi, _bluetooth;
 
     public QuickRow(ControllerService pad, Connectivity net, IPage wifiScreen, IPage bluetoothScreen, Action<IPage> openSubPage)

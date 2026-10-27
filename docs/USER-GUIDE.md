@@ -10,7 +10,8 @@ instantly because it's always ready in the background.
 - [Quick tab](#quick-tab)
 - [Graphics tab](#graphics-tab)
 - [Controller tab](#controller-tab)
-- [Apps & power](#apps--power)
+- [App switcher](#app-switcher)
+- [Power](#power)
 - [Performance overlay](#performance-overlay)
 - [Good to know](#good-to-know)
 
@@ -34,10 +35,12 @@ the game, so the panel doesn't use them: move with the D-pad.
 | Select, switch on / off | **A** | **✕ Cross** | Enter or Space |
 | Back one screen / close | **B** | **○ Circle** | Esc |
 | Previous / next tab | **LB / RB** (bumpers) | **L1 / R1** | Page Up / Page Down, or Q / E |
-| Apps & power menu | **Y** | **△ Triangle** | |
+| Power menu | **Y** | **△ Triangle** | |
+| End an app (in the app switcher) | **X** | **□ Square** | X |
 
 - D-pad **up** from the top of a page reaches the tab row (left / right there switches tabs);
-  up again reaches the app chip in the header.
+  up again reaches the power chip in the header.
+- D-pad **left** from the left edge of a page goes into the [app switcher](#app-switcher).
 - The selection is a glass drop that slides to whatever you select. The footer shows what **A**
   does on the selected control ("Select", "End", "Connect"…).
 - **Touch** works everywhere: tap anything, tap a tab, slide a finger along a bar.
@@ -46,8 +49,7 @@ the game, so the panel doesn't use them: move with the D-pad.
 
 ## The header
 
-From left to right: the **time**, the **app chip** (the app that was in front when you opened
-the panel; opens [Apps & power](#apps--power)), **Bluetooth** and **Wi-Fi** (bright with a name =
+From left to right: the **time**, the **power chip** (opens the [Power menu](#power)), **Bluetooth** and **Wi-Fi** (bright with a name =
 connected, faint = on but not connected, crossed out = off) and the **battery**.
 
 ## Quick tab
@@ -134,16 +136,29 @@ buttons are busy driving the panel); everything else changes at once.
   **Nintendo layout** (swaps A / B and X / Y) and **D-pad diagonal lock**. Changed buttons show
   what they do now.
 
-## Apps & power
+## App switcher
 
-Open it with **Y** (Triangle), the **app chip** in the header, or the **Y** hint in the footer.
+Floats left of the panel whenever it's open, small and tucked against it, its tile level with
+the Quick tab's first row. The app that was in front sits on a glass tile; the other open apps
+sit on a glass arc around it (most recently used first). Moving into it grows it to full size
+and shows a live preview of the selected app further left.
 
-- **End [app]**: closes the app that was in front when you opened the panel (first **A** arms,
-  second **A** ends it). It's asked to close first; a frozen app is ended at once.
-- **Running apps ›**: every open app with its memory use and a "Not responding" mark when frozen.
-  **A** ends one. **Close background apps** ends all of them except the one in front.
-- **Sleep**, **Hibernate** (only when hibernation is enabled in Windows), **Restart** and
-  **Shut down** (these two need a second **A**).
+- D-pad **left** from the left edge of a page goes in, on the tile (the app in front); left
+  again reaches the arc. **Up / down** turn the arc (the selected app is always on the left;
+  "+3" style counts show apps out of view). **Right** goes to the tile, right again (or **B**)
+  back to the panel.
+- **A** switches to the selected app (on the tile: back to it). **X** ends the selected app (on
+  the tile it needs a second **X**). It's asked to close first; a frozen app is ended at once.
+- The arc's last stop is **Close background apps** (red): ends all but the app in front (second **A**).
+- Under the preview: the app's memory use, or **Not responding** in red (frozen apps also get a red dot).
+- Tap an app to switch to it, the tile to go back to it; tap Close background apps twice. Swipe
+  up or down along the arc to turn it.
+
+## Power
+
+Open it with **Y** (Triangle), the **power chip** in the header, or the **Y** hint in the footer:
+**Sleep**, **Hibernate** (only when hibernation is enabled in Windows), **Restart** and
+**Shut down** (these two need a second **A**).
 
 ## Performance overlay
 

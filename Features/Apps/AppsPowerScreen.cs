@@ -9,94 +9,35 @@ using ClawControl.UI;
 namespace ClawControl.Features.Apps;
 
 /// <summary>
-/// The Apps &amp; power menu (header chip or Y): one card with "End [app in front]" (red icon;
-/// first A arms, second ends) and "Running apps" (opens <see cref="RunningAppsScreen"/>), then
-/// Sleep, Hibernate, Restart and Shut down (Restart / Shut down need a second A).
+/// The Power menu (header chip or Y): Sleep, Hibernate, Restart and Shut down (Restart / Shut
+/// down need a second A). Apps are in the app switcher left of the panel (AppSwitcher).
 /// </summary>
 public sealed class AppsPowerScreen : UserControl, IPage
 {
     public static readonly Brush EndBrush = Ui.Hex("#FFFF453A");
     public static readonly TimeSpan CloseWait = TimeSpan.FromSeconds(4);
 
-    readonly Button _end;
-    readonly TextBlock _endText = Ui.Text("", bold: true);
-    readonly ListRow _running;
     readonly Confirmations _confirm = new();
-    RunningApp? _front;
 
     public string Id => "apps-power";
-    public string Title => "Apps & power";
+    public string Title => "Power";
     public FrameworkElement View => this;
 
-    /// <summary>The list of open apps, a screen of its own.</summary>
-    public RunningAppsScreen Apps { get; } = new();
-
-    public AppsPowerScreen(Action<IPage> openSubPage)
+    public AppsPowerScreen()
     {
-        // End: a row like the others, only its icon is red.
-        _endText.VerticalAlignment = VerticalAlignment.Center;
-        var endLine = new DockPanel();
-        var square = Ui.IconSquare(Ui.Glyph("", 14), EndBrush);
-        DockPanel.SetDock(square, Dock.Left);
-        endLine.Children.Add(square);
-        endLine.Children.Add(_endText);
-        _end = new Button { Style = Ui.Style("RowButton"), Content = endLine };
-        PanelInput.SetHint(_end, "End");
-        _confirm.Add(_end, _endText, () => $"End {_front?.Name}", "Press A again to end");
-        _end.Click += async (_, _) =>
-        {
-            if (_front == null || !_confirm.Confirm(_end)) return;
-            var app = _front;
-            _front = null;
-            ShowFront();
-            await RunningApps.Close(app, CloseWait);
-        };
-
-        _running = new ListRow(Ui.Glyph("", 15), Ui.RowIconBrush, "Running apps");
-        _running.Button.Click += (_, _) => openSubPage(Apps);
-        Apps.CountChanged += count => _running.Value.Text = count > 0 ? count.ToString() : "";
-
-        var power = new UniformGrid { Rows = 1, Margin = new Thickness(4, 12, 4, 2) };
+        var power = new UniformGrid { Rows = 1, Margin = new Thickness(4, 4, 4, 2) };
         power.Children.Add(PowerButton("", "Sleep", RunningApps.Sleep, confirm: false));
         if (Device.CanHibernate)  // hibernation can be switched off in Windows (powercfg /h off)
             power.Children.Add(PowerButton(Ui.LineIcon("HibernateIcon", 20), "Hibernate", RunningApps.Hibernate, confirm: false));
         power.Children.Add(PowerButton("", "Restart", RunningApps.Restart, confirm: true));
         power.Children.Add(PowerButton("", "Shut down", RunningApps.ShutDown, confirm: true));
 
-        var card = ListRow.Card(new FrameworkElement[] { _end, _running.View }, 56);
-        _endDivider = ((Panel)card.Child).Children[1];
-        Content = Ui.Stack(card, power);
+        Content = power;
     }
 
-    readonly UIElement _endDivider;
-
-    /// <summary>The app that was in front when the panel opened (set by the panel).</summary>
-    public RunningApp? Front
-    {
-        get => _front;
-        set
-        {
-            _front = value;
-            Apps.Front = value;
-            ShowFront();
-        }
-    }
-
-    public void OnShown()
-    {
-        _confirm.Disarm();
-        ShowFront();
-        Apps.Load();  // for the count
-    }
+    public void OnShown() => _confirm.Disarm();
 
     public void OnHidden() => _confirm.Disarm();
-
-    void ShowFront()
-    {
-        _endText.Text = $"End {_front?.Name}";
-        // With nothing in front the card is just Running apps.
-        _end.Visibility = _endDivider.Visibility = _front != null ? Visibility.Visible : Visibility.Collapsed;
-    }
 
     /// <summary>A round power button with its name under it (the name asks for a second A when armed).</summary>
     FrameworkElement PowerButton(object icon, string label, Action action, bool confirm)

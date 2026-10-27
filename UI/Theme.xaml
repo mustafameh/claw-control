@@ -23,15 +23,28 @@
     <!-- D-pad focus is the glass drop (UI/SelectionLens), not a ring: the templates' focus
          borders stay in place (same layout) but draw nothing. -->
     <SolidColorBrush x:Key="FocusBrush" Color="Transparent"/>
-    <!-- Glass edges, lit from the top-left like Liquid Glass: bright corner, faint sides, a
-         softer glint at the bottom-right. Panel rim and the selection drop's rim. -->
-    <LinearGradientBrush x:Key="GlassRimBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#C0FFFFFF" Offset="0"/>
-        <GradientStop Color="#26FFFFFF" Offset="0.16"/>
-        <GradientStop Color="#0AFFFFFF" Offset="0.4"/>
-        <GradientStop Color="#0AFFFFFF" Offset="0.62"/>
-        <GradientStop Color="#26FFFFFF" Offset="0.86"/>
-        <GradientStop Color="#78FFFFFF" Offset="1"/>
+    <!-- Glass edges, lit from above like Liquid Glass: bright top edge and top-left corner, faint
+         sides, a softer glint at the bottom-right. The panel rim (one device pixel) and, just
+         inside it, a wider faint band that gives the glass some thickness. -->
+    <LinearGradientBrush x:Key="GlassRimBrush" StartPoint="0.2,-0.05" EndPoint="0.8,1.05">
+        <GradientStop Color="#9EFFFFFF" Offset="0"/>
+        <GradientStop Color="#47FFFFFF" Offset="0.09"/>
+        <GradientStop Color="#1FFFFFFF" Offset="0.3"/>
+        <GradientStop Color="#0DFFFFFF" Offset="0.58"/>
+        <GradientStop Color="#2EFFFFFF" Offset="0.88"/>
+        <GradientStop Color="#80FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PanelBandBrush" StartPoint="0.2,-0.05" EndPoint="0.8,1.05">
+        <GradientStop Color="#14FFFFFF" Offset="0"/>
+        <GradientStop Color="#09FFFFFF" Offset="0.3"/>
+        <GradientStop Color="#04FFFFFF" Offset="0.6"/>
+        <GradientStop Color="#0DFFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <!-- The slider handle: a sliver of clear glass with a lit edge, like the selection drop. -->
+    <SolidColorBrush x:Key="HandleFillBrush" Color="#29FFFFFF"/>
+    <LinearGradientBrush x:Key="HandleRimBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#F2FFFFFF" Offset="0"/>
+        <GradientStop Color="#73FFFFFF" Offset="1"/>
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="LensRimBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#E6FFFFFF" Offset="0"/>
@@ -43,9 +56,12 @@
         <GradientStop Color="#1CFFFFFF" Offset="0"/>
         <GradientStop Color="#0AFFFFFF" Offset="1"/>
     </LinearGradientBrush>
+    <!-- Light caught along the top inside the glass. -->
     <LinearGradientBrush x:Key="PanelSheenBrush" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#12FFFFFF" Offset="0"/>
-        <GradientStop Color="#00FFFFFF" Offset="0.3"/>
+        <GradientStop Color="#17FFFFFF" Offset="0"/>
+        <GradientStop Color="#0FFFFFFF" Offset="0.025"/>
+        <GradientStop Color="#0AFFFFFF" Offset="0.07"/>
+        <GradientStop Color="#00FFFFFF" Offset="0.22"/>
     </LinearGradientBrush>
 
     <!-- Brand logos (Simple Icons, 24×24). Draw with the Logo style; they take the text colour. -->
@@ -503,8 +519,10 @@
         </Setter>
     </Style>
 
-    <!-- Pill that fills up; icon/label left and value right sit inside it (see FillSlider.cs).
-         The invisible thumb follows the fill edge so it can still be dragged by touch. -->
+    <!-- Split bar: the fill, a glass handle and the empty part, with small gaps between them,
+         all inside one rounded shape (FillSlider.cs places them and clips PART_Body to it).
+         Icon/label left and value right sit inside it. The track is invisible: it only turns
+         taps and drags into values (its thumb sits at the fill edge, so it can be dragged). -->
     <Style TargetType="ui:FillSlider">
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="IsSnapToTickEnabled" Value="True"/>
@@ -517,18 +535,16 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ui:FillSlider">
-                    <Border x:Name="Frame" Height="42" CornerRadius="21" Background="{StaticResource BarTrackBrush}"
-                            BorderThickness="2" BorderBrush="Transparent">
-                        <Grid>
+                    <Border x:Name="Frame" Height="42" CornerRadius="21" Background="Transparent">
+                        <Grid x:Name="PART_Body">
+                            <Canvas IsHitTestVisible="False">
+                                <Border x:Name="PART_Fill" Height="42" CornerRadius="0,4,4,0"
+                                        Background="{Binding Fill, RelativeSource={RelativeSource AncestorType=ui:FillSlider}}"/>
+                                <Border x:Name="PART_Rest" Height="42" CornerRadius="4,0,0,4" Background="{StaticResource BarTrackBrush}"/>
+                            </Canvas>
                             <Track x:Name="PART_Track">
                                 <Track.DecreaseRepeatButton>
-                                    <RepeatButton Focusable="False" IsTabStop="False" Command="{x:Static Slider.DecreaseLarge}">
-                                        <RepeatButton.Template>
-                                            <ControlTemplate TargetType="RepeatButton">
-                                                <Border CornerRadius="19" Background="{Binding Fill, RelativeSource={RelativeSource AncestorType=ui:FillSlider}}"/>
-                                            </ControlTemplate>
-                                        </RepeatButton.Template>
-                                    </RepeatButton>
+                                    <RepeatButton Style="{StaticResource TrackEmpty}" Command="{x:Static Slider.DecreaseLarge}"/>
                                 </Track.DecreaseRepeatButton>
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Style="{StaticResource TrackEmpty}" Command="{x:Static Slider.IncreaseLarge}"/>
@@ -546,7 +562,7 @@
                             <!-- Light text (over the empty part). -->
                             <DockPanel Margin="14,0" TextElement.Foreground="{StaticResource TextBrush}">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{TemplateBinding ValueText}" FontWeight="SemiBold"
+                                    <TextBlock x:Name="PART_Value" Text="{TemplateBinding ValueText}" FontWeight="SemiBold"
                                                IsHitTestVisible="False" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="PART_More" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
                                                FontSize="13" Background="Transparent"
@@ -555,7 +571,7 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
                                             VerticalAlignment="Center" IsHitTestVisible="False">
                                     <TextBlock x:Name="GlyphText" Text="{TemplateBinding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5"/>
                                     <Image x:Name="IconImage" Source="{TemplateBinding Icon}" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Viewbox x:Name="LineIconView" Width="17" Height="17" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <Canvas Width="24" Height="24"><Path Style="{StaticResource LineIcon}" Data="{TemplateBinding LineIcon}"/></Canvas>
@@ -568,13 +584,13 @@
                             <DockPanel x:Name="PART_DarkLayer" Margin="14,0" IsHitTestVisible="False"
                                        TextElement.Foreground="{StaticResource OnFillBrush}">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{TemplateBinding ValueText}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PART_DarkValue" Text="{TemplateBinding ValueText}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="DarkMore" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
                                                FontSize="13" Padding="8,8,0,8" VerticalAlignment="Center" Visibility="Collapsed"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                                     <TextBlock x:Name="DarkGlyph" Text="{TemplateBinding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                               FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5"/>
                                     <Image x:Name="DarkIcon" Source="{TemplateBinding Icon}" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Viewbox x:Name="DarkLineIcon" Width="17" Height="17" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <Canvas Width="24" Height="24"><Path Style="{StaticResource LineIcon}" Data="{TemplateBinding LineIcon}"/></Canvas>
@@ -583,6 +599,10 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </DockPanel>
+                            <Canvas IsHitTestVisible="False">
+                                <Border x:Name="PART_Handle" Background="{StaticResource HandleFillBrush}"
+                                        BorderBrush="{StaticResource HandleRimBrush}" BorderThickness="0.67"/>
+                            </Canvas>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>

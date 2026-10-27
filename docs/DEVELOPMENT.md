@@ -84,7 +84,23 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   - Sub screens (`OverlayWindow.OpenSubPage`, e.g. `Sound/SoundPage`) show over the current page;
     the tab pill becomes "‹ Title". Screens can open screens (a stack): B goes back one level, to
     the row that opened it; LB / RB / Y / closing the panel leave all levels.
-  - Apps & power (`Features/Apps`): opened by the header chip or **Y**.
+  - Power (`Features/Apps/AppsPowerScreen`): opened by the header chip or **Y**.
+  - App switcher (`Features/Apps/AppSwitcher`, 2026-10-27): a Canvas in the panel window's left
+    column (`Root`), its tile level with the card's first row (`FirstRow`). The panel's one
+    `GlassBackdrop` covers the whole window and draws the card and the switcher's pieces (the
+    arc is a row of overlapping blurred circles). A separate never-activating window was tried
+    first: WPF touch didn't reach it. It reaches 40 units into the card's shadow room (`SwitcherOverlap`).
+    The panel's glass drop (`SelectionLens`, rooted at `Root`) follows its selection (`SelectedView`).
+    It's a mini version (0.6, scaled toward the card's edge) until it has the D-pad, then springs to
+    full size (`_grow`; glass pieces carry an opacity, `SelectionLens.Nudge` keeps the drop on it);
+    the live preview shows only at full size. D-pad left from the page's left edge hands it the
+    D-pad (`OverlayWindow.Handle` passes commands on until it lets go). Live previews are DWM
+    thumbnails (`UI/WindowPreview`) drawn into the glass window under a hole in the frame. X =
+    `NavCommand.Action` (numpad 1 in the panel mapping; only the switcher uses it, so a stray X on a page can't end an app). Store apps:
+    their windows belong to the frame host (`ApplicationFrameWindow`); `RunningApps.Identify` finds
+    the app's own process through the inner `CoreWindow` and its name / tile icon through the
+    window's AppUserModelID (`shell:AppsFolder\<id>`); apps are keyed by `RunningApp.Key`. Apps come in Alt + Tab order
+    (`RunningApps.List`), icons from the shell at 96 px (`RunningApps.LargeIcon`).
 - Input: the panel mapping (`ControllerService.PanelMapping`, docs/HARDWARE.md "Panel mapping")
   has the chip send keys instead of buttons while the panel is open, so games don't see the
   presses; `DesktopInputBlocker` (low-level hooks, only while open) takes those keys and MSI's
@@ -139,8 +155,23 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 
 ### Liquid Glass touches
 
-- Panel rim: `GlassRimBrush` one device pixel wide (`1 / unit` DIP), lit at the top-left corner,
-  faint sides, softer glint bottom-right; plus a faint top sheen (`PanelSheenBrush`).
+- Panel rim: `GlassRimBrush` one device pixel wide (`1 / unit` DIP), lit along the top and the
+  top-left corner, faint sides, softer glint bottom-right; just inside it a faint 2-unit band
+  (`PanelBandBrush`) and a soft glow fading inward (nested borders), plus a top sheen
+  (`PanelSheenBrush`): the glass looks thick. No dark outline (it showed as a black ring over
+  bright games).
+- The card floats: a soft blurred shadow below it and a faint halo along its edge
+  (`ShadowLayer`, `BlurEffect` + `BitmapCache`, so it's blurred once, not per frame). It's
+  clipped to the outside of the card, because the card is see-through. The window is bigger
+  than the card by the card's `Margin` to make room for it (`PlaceInCorner`); the glass, the
+  captures and taps follow the card, and a tap on the shadow counts as outside.
+- `FillSlider` (2026-10-27): a split bar. White fill, a sliver of glass as the handle (6 units,
+  `HandleFillBrush` / `HandleRimBrush`) and the empty part, with 3-unit gaps, all clipped to
+  one rounded shape; near the ends the handle shortens to follow the curve. The fill springs
+  to new values, the value rolls in from the direction it moved, D-pad past either end
+  stretches the bar like a rubber band (`Nudge`), and `TurnGlyph` turns the brightness sun.
+  The track is invisible and only turns taps / drags into values. Runs per frame only while
+  moving.
 - Selection = `UI/SelectionLens`: a glass drop (`LensRimBrush` rim, `LensFillBrush` fill) on
   `LensLayer` above everything. Spring physics (stiffness 300, damping 24: one small overshoot),
   stretches along its direction by speed, A swells it (`Pulse`). Runs on
@@ -169,8 +200,8 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   rounded-rectangle geometry. The panel is `AllowsTransparency` (draws its own rounded card and
   tint) and is **owned** by the glass window so it always stays above it. Composition needs a
   DispatcherQueue on the UI thread (`CreateDispatcherQueueController`).
-- The glass follows the panel's WPF size (`ActualWidth` / `ActualHeight` × DPI), not
-  `GetWindowRect`: during `SizeChanged` the window itself still has the old size.
+- The glass follows the card's WPF bounds (layout size × DPI), not `GetWindowRect`: during
+  `SizeChanged` the window itself still has the old size.
 - For window / glass experiments, a throwaway WPF app that opens a striped window, puts the test
   window on top and takes its own `CopyFromScreen` shot is quicker than trying in the real app.
 
@@ -200,6 +231,9 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   to page 2, left from its first column flips back; dots show / tap the page.
 - Touch: the panel's ScrollViewer (PanningMode) takes every finger slide, so `FillSlider`
   captures the touch itself (Preview touch events) and follows the finger.
+- A see-through (layered) window shows its last picture again for a moment when it's shown next
+  time. `HidePanel` moves the panel off-screen at once, lets it draw its reset look (mini app
+  switcher, no drop) for a few frames, then hides it (`HideAfterDrawing`).
 - Never set `Foreground = null` to mean "inherit": it's a local value and the text draws
   invisibly. Leave the property unset.
 - During captures the panel is hidden, so `IsVisible` is false everywhere: capture code checks

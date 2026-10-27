@@ -211,7 +211,7 @@ public sealed class ControllerService
         {
             PanelKeys.Up, PanelKeys.Down, PanelKeys.Left, PanelKeys.Right,
             PanelKeys.PrevPage, PanelKeys.NextPage, PanelKeys.Nothing, PanelKeys.Nothing,
-            PanelKeys.Accept, PanelKeys.Back, PanelKeys.Nothing, PanelKeys.Menu,
+            PanelKeys.Accept, PanelKeys.Back, PanelKeys.Action, PanelKeys.Menu,
             -1, PanelKeys.Nothing, PanelKeys.Nothing, -1,
         };
         for (int i = 0; i < codes.Length; i++)

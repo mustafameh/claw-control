@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.2 (2026-10-27)
+
+- **App switcher:** floats left of the panel (small until you move into it with D-pad left, then
+  it grows). The app in front on a glass tile, your other open apps on a glass arc (most recent
+  first), a live preview of the selected one with its memory use or "Not responding", and Close
+  background apps as the arc's last stop. **A** switches, **X** ends an app (only inside the
+  switcher), swipe the arc to turn it, tap to switch. Store apps show their real name and icon.
+  It replaces Running apps and End [app]; **Y** now opens just Power.
+- **New look:** the panel floats with a soft shadow and a thicker-looking glass rim; sliders are
+  split bars with a glass handle that glide to new values, roll their numbers and stretch at the
+  ends; the selection drop also moves through the app switcher.
+- The Quick tab opens on the controller mode circle.
+
 ## 0.1.1 (2026-10-27)
 
 - **Fixed:** in Xbox mode the game and Steam Big Picture behind the panel also reacted to the

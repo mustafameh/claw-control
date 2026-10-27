@@ -12,6 +12,7 @@ public static class PanelKeys
     // MSI's key codes, as the chip's mapping takes them.
     public const int Up = 128, Down = 129, Left = 130, Right = 131;  // arrow keys
     public const int Accept = 142;    // numpad 3
+    public const int Action = 140;    // numpad 1 (X)
     public const int Back = 156;      // F23
     public const int Menu = 144;      // numpad 5
     public const int PrevPage = 146;  // numpad 7
@@ -32,6 +33,7 @@ public static class PanelKeys
         return scan switch
         {
             0x51 => NavCommand.Accept,    // numpad 3
+            0x4F => NavCommand.Action,    // numpad 1
             0x4C => NavCommand.Menu,      // numpad 5
             0x47 => NavCommand.PrevPage,  // numpad 7
             0x49 => NavCommand.NextPage,  // numpad 9

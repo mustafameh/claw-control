@@ -31,7 +31,7 @@
         <ui:FillSlider x:Name="VolumeSlider" Glyph="&#xE995;" ShowMore="True" Minimum="0" Maximum="100" SmallChange="2"
                        ValueChanged="Volume_ValueChanged"/>
         <!-- D-pad left/right moves brightness 5% at a time. -->
-        <ui:FillSlider x:Name="BrightnessSlider" Glyph="&#xE706;" Minimum="0" Maximum="100" SmallChange="5"
+        <ui:FillSlider x:Name="BrightnessSlider" Glyph="&#xE706;" TurnGlyph="True" Minimum="0" Maximum="100" SmallChange="5"
                        ValueChanged="Brightness_ValueChanged"/>
 
         <!-- Power modes as one bar of icons; the line below names the one under the D-pad (or the active one). -->

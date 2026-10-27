@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using ClawControl.Features.Controller;
+using ClawControl.Features.Network;
 using ClawControl.Features.Sound;
 using ClawControl.Hardware;
 using ClawControl.UI;
@@ -24,7 +25,8 @@ public partial class PerformancePage : UserControl, IPage
     public FrameworkElement View => this;
 
     /// <summary>The panel opens on the volume slider; press up for the music controls.</summary>
-    public FrameworkElement DefaultFocus => VolumeSlider;
+    /// <summary>Opens on the mode circle (Xbox / mouse), or the volume bar without the top row.</summary>
+    public FrameworkElement DefaultFocus => (TopRow.Content as QuickRow)?.Mode ?? VolumeSlider;
 
     /// <summary>A on the volume slider (or tapping its arrow) asks for the Sound screen.</summary>
     public event Action? OpenSoundRequested;

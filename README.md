@@ -37,11 +37,11 @@ almost nothing while it's closed.
 | <img src="docs/media/screens/quick.jpg" width="250"><br>**Quick tab**<br>Volume, brightness, Wi-Fi, Bluetooth, controller mode, now playing | <img src="docs/media/screens/power.jpg" width="250"><br>**Power modes**<br>Super Battery, Balanced, Performance, or your own watts | <img src="docs/media/screens/overlay.jpg" width="250"><br>**Performance overlay**<br>FPS, power, temps, CPU, GPU, RAM… in any corner |
 | <img src="docs/media/screens/sound.jpg" width="250"><br>**Sound**<br>Output device and per-app volume | <img src="docs/media/screens/wifi.jpg" width="250"><br>**Wi-Fi and Bluetooth**<br>Switch them, connect networks and headphones | <img src="docs/media/screens/graphics.jpg" width="250"><br>**Graphics tab**<br>FPS limit, frame gen, upscaling, sharpening, FreeSync |
 | <img src="docs/media/screens/resolution.jpg" width="250"><br>**Display**<br>Resolution, refresh rate, Windows scaling, graphics memory | <img src="docs/media/screens/controller.jpg" width="250"><br>**Controller tab**<br>Xbox, PlayStation, mouse or off; lights, rumble, gyro | <img src="docs/media/screens/lights.jpg" width="250"><br>**Lights**<br>Colours, effects, speed, brightness |
-| <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**Apps & power**<br>End a frozen game, running apps, sleep, restart |
+| <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**Apps and power**<br>App switcher with live previews, end apps, sleep, restart |
 
 - **Instant:** the panel is built once at startup and only shown and hidden.
 - **Controller-first:** D-pad to move, **A** select, **B** back, **LB / RB** tabs,
-  **Y** Apps & power. Touch works everywhere too.
+  **Y** Power, **X** ends an app in the app switcher (D-pad left from the panel). Touch works everywhere too.
 - **Keeps presses from the game:** while the panel is open the buttons and triggers drive only
   the panel, not the game or Steam behind it, in Xbox and in MSI's Desktop (mouse) mode (the
   sticks still reach the game).
@@ -77,7 +77,8 @@ Full guide, including what gets installed and how to check the download:
 | Select, switch on / off | A | ✕ Cross |
 | Back / close | B | ○ Circle |
 | Previous / next tab | LB / RB | L1 / R1 |
-| Apps & power | Y | △ Triangle |
+| Power menu | Y | △ Triangle |
+| End an app (in the app switcher) | X | □ Square |
 | Change a bar | D-pad left / right on it | D-pad left / right on it |
 
 Everything applies immediately; there's no Save button. The new controller mode applies when you

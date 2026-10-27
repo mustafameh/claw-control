@@ -103,8 +103,8 @@ public partial class App : Application
         var wifiScreen = new WifiScreen(net, closePanel);
         var bluetoothScreen = new BluetoothScreen(net, closePanel);
         performancePage.SetTopRow(new QuickRow(_controller, net, wifiScreen, bluetoothScreen, page => _overlay?.OpenSubPage(page)));
-        var appsMenu = new AppsPowerScreen(page => _overlay?.OpenSubPage(page));
-        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, appsMenu.Apps);
+        var appsMenu = new AppsPowerScreen();
+        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu);
         performancePage.AddSection(new OverlaySection(_settings, _perfOverlay));
         _graphics = new GraphicsService(_settings);
         var pages = new IPage[]
@@ -113,7 +113,7 @@ public partial class App : Application
             new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page)),
             new ControllerPage(_controller, page => _overlay?.OpenSubPage(page)),
         };
-        _overlay = new OverlayWindow(pages, _settings, net) { SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu };
+        _overlay = new OverlayWindow(pages, _settings, net) { SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu, Switcher = new AppSwitcher() };
         _performance.Changed += UpdateStatus;
         UpdateStatus();
         _overlay.Prewarm();

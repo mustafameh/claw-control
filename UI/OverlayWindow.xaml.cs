@@ -51,23 +51,30 @@ public partial class OverlayWindow : Window
 
         // The glass layer sits right under the panel: the panel is owned by it, so Windows always
         // keeps the panel on top of it.
-        _glass = new GlassBackdrop(CornerRadiusDip);
+        _glass = new GlassBackdrop();
+        _preview = new WindowPreview(_glass.Handle);
         new WindowInteropHelper(this).Owner = _glass.Handle;
         SourceInitialized += (_, _) => NativeWindow.HideFromAltTab(new WindowInteropHelper(this).Handle);
         // The panel's height follows its content; the glass follows the panel.
-        SizeChanged += (_, _) => { if (IsVisible) _glass.ShowAt(this, _unitPx); };
+        SizeChanged += (_, _) => { if (IsVisible) ShowGlass(); };
         // Tapping outside the panel closes it (ignore the focus shuffle right after opening).
         Deactivated += (_, _) =>
         {
             if (IsVisible && DateTime.UtcNow - _shownAt > TimeSpan.FromMilliseconds(500)) HidePanel();
         };
+        // The shadow around the card isn't fully clear, so Windows sends taps on it to this
+        // window: those are outside the panel too.
+        PreviewMouseDown += (_, _) => { if (!Card.IsMouseOver && Switcher?.IsMouseOver != true) HidePanel(); };
+        PreviewTouchDown += (_, _) => { if (!Card.AreAnyTouchesOver && Switcher?.AreAnyTouchesOver != true) HidePanel(); };
+        // The shadow is drawn only outside the see-through card.
+        Card.SizeChanged += (_, _) => ClipShadow();
         PreviewKeyDown += OnPreviewKeyDown;
         // The footer says what A does on the selected control (PanelInput.Hint), else "Select".
         PreviewGotKeyboardFocus += (_, e) =>
             AcceptHint.Text = (e.NewFocus is DependencyObject focus ? PanelInput.GetHint(focus) : null) ?? "Select";
         // The glass drop follows the selected control (focus passing through the window itself,
         // as during a page swap, leaves it where it is until the next control).
-        _lens = new SelectionLens(LensLayer, PageScroller);
+        _lens = new SelectionLens(LensLayer, PageScroller, Root);
         GotKeyboardFocus += (_, e) => FollowSelection(e.NewFocus);
         // The D-pad selection is the window's logical focus, which also moves while Windows keeps
         // another app active (no keyboard focus events then).
@@ -90,7 +97,7 @@ public partial class OverlayWindow : Window
             PlaceInCorner();
             if (!IsVisible) return;
             UpdateLayout();
-            _glass.ShowAt(this, _unitPx);
+            ShowGlass();
         });
     }
 
@@ -140,31 +147,69 @@ public partial class OverlayWindow : Window
         ShowActivated = true;
         CurrentPage.OnHidden();  // nothing listens while the panel is closed
         _ = _net.RefreshAsync();  // so the first opening already shows Wi-Fi and Bluetooth
-        ShowFrontApp();  // the chip's power sign until an opening knows the app in front
+        ShowFrontApp();
     }
+
+    /// <summary>The app switcher left of the panel (shown with it; D-pad left from the page's left edge).</summary>
+    internal AppSwitcher? Switcher
+    {
+        get => _switcher;
+        init
+        {
+            _switcher = value;
+            if (value == null) return;
+            SwitcherHost.Child = value;
+            value.Preview = ShowPreview;
+            // Its glass follows it (also while it grows or shrinks), and so does the drop on it.
+            value.GlassChanged += () =>
+            {
+                if (!IsVisible) return;
+                ShowGlass();
+                _lens.Nudge();
+            };
+            value.SelectionChanged += spot => { if (IsVisible && value.Active) _lens.Follow(spot); };
+            // Back from the switcher: the drop comes back on the control that was selected.
+            value.Exited += () =>
+            {
+                FollowSelection(FocusManager.GetFocusedElement(this));
+                ShowFooter();
+            };
+            value.Done += HidePanel;
+        }
+    }
+
+    readonly AppSwitcher? _switcher;
 
     public void Toggle()
     {
+        if (_hiding) return;  // closing: the next press opens it
         if (IsVisible) HidePanel();
         else ShowPanel();
     }
 
-    /// <summary>The Apps &amp; power menu (header chip, footer Y hint, Y button).</summary>
+    /// <summary>The Power menu (header chip, footer Y hint, Y button).</summary>
     public AppsPowerScreen? AppsMenu { get; set; }
 
     RunningApp? _frontApp;
 
-    /// <summary>The chip shows the app that was in front, or a power sign when there was none.</summary>
+    /// <summary>The chip is the Power menu's sign (the app in front is on the switcher's tile).</summary>
     void ShowFrontApp()
     {
-        AppChipIcon.Source = _frontApp?.Icon;
-        AppChipIcon.Visibility = _frontApp?.Icon != null ? Visibility.Visible : Visibility.Collapsed;
-        AppChipName.Text = _frontApp?.Name ?? "";
-        AppChipName.Visibility = _frontApp != null ? Visibility.Visible : Visibility.Collapsed;
-        AppChipGlyph.Text = _frontApp != null ? "" : "";  // ▾ or power
-        AppChipGlyph.FontSize = _frontApp != null ? 10 : 14;
-        AppChipGlyph.Margin = new Thickness(_frontApp != null ? 5 : 0, 1, 0, 0);
-        if (AppsMenu != null) AppsMenu.Front = _frontApp;
+        AppChipIcon.Visibility = AppChipName.Visibility = Visibility.Collapsed;
+        AppChipGlyph.Text = "\uE7E8";
+        AppChipGlyph.FontSize = 14;
+        AppChipGlyph.Margin = new Thickness(0, 1, 0, 0);
+    }
+
+    /// <summary>The footer: what A does on the selected control (else "Select"), or in the app
+    /// switcher its A, X (End) and B (Back).</summary>
+    void ShowFooter()
+    {
+        bool switcher = Switcher is { Active: true };
+        AcceptHint.Text = switcher ? Switcher!.AcceptHint
+            : (FocusManager.GetFocusedElement(this) is DependencyObject focus ? PanelInput.GetHint(focus) : null) ?? "Select";
+        ActionKey.Visibility = ActionHint.Visibility = switcher ? Visibility.Visible : Visibility.Collapsed;
+        BackHint.Text = switcher ? "Back" : "Close";
     }
 
     void AppChip_Click(object sender, RoutedEventArgs e) => OpenAppsMenu();
@@ -180,9 +225,9 @@ public partial class OverlayWindow : Window
 
     public void ShowPanel()
     {
-        // Before the panel takes focus: which app the chip and End are about.
+        StopHiding();  // opened again while still closing
+        // Before the panel takes focus: the app in front (the switcher's tile).
         _frontApp = RunningApps.Front();
-        ShowFrontApp();
         PlaceInCorner();
         ShowPage(_pageIndex);
         UpdateHeader();
@@ -190,13 +235,16 @@ public partial class OverlayWindow : Window
         _net.StartWatching();
         _ = _net.RefreshAsync();
         _shownAt = DateTime.UtcNow;
+        // Mini again before the first frame (it may have been full size when the panel closed).
+        Switcher?.Open(_frontApp);
         Show();
         UpdateLayout();
-        _glass.ShowAt(this, _unitPx);
+        ShowGlass();
         if (!NativeWindow.BringToFront(new WindowInteropHelper(this).Handle))
             Log.Info("Panel shown but Windows kept another app in the foreground");
         Activate();
         RestoreFocus(opening: true);
+        ShowFooter();
         if (SaveSnapshots)
             Dispatcher.BeginInvoke(SaveSnapshot, DispatcherPriority.ApplicationIdle);
     }
@@ -213,13 +261,79 @@ public partial class OverlayWindow : Window
         double scale = ScreenFit.Scale(this, screen);
         var zoom = new ScaleTransform(scale, scale);
         zoom.Freeze();
-        Card.LayoutTransform = zoom;
+        Root.LayoutTransform = zoom;
         Card.BorderThickness = new Thickness(1 / _unitPx);  // the rim stays one device pixel
+        // The window also holds the card's shadow: it reaches past the card (and past the
+        // screen's edges, where the shadow is simply cut off) by the card's margin.
+        // Left of that, the app switcher, its tile level with the card's first row.
+        var room = Card.Margin;
         double gap = ScreenGap * _unitPx, width = Math.Round(PanelWidth * _unitPx);
-        Width = ScreenFit.ToWindowUnits(this, width);
-        MaxHeight = ScreenFit.ToWindowUnits(this, screen.Work.Height - 2 * gap);
-        Top = ScreenFit.ToWindowUnits(this, screen.Work.Y + gap);
-        Left = ScreenFit.ToWindowUnits(this, screen.Work.X + screen.Work.Width - width - gap);
+        double switcher = Switcher != null ? Math.Round((AppSwitcher.SwitcherWidth - SwitcherOverlap) * _unitPx) : 0;
+        Width = ScreenFit.ToWindowUnits(this, width + Math.Round((room.Left + room.Right) * _unitPx) + switcher);
+        MaxHeight = ScreenFit.ToWindowUnits(this, screen.Work.Height - 2 * gap + (room.Top + room.Bottom) * _unitPx);
+        Top = ScreenFit.ToWindowUnits(this, screen.Work.Y + gap - room.Top * _unitPx);
+        Left = ScreenFit.ToWindowUnits(this, screen.Work.X + screen.Work.Width - width - gap - Math.Round(room.Left * _unitPx) - switcher);
+        SwitcherHost.Margin = new Thickness(0, room.Top + FirstRow - AppSwitcher.TileCentre, -SwitcherOverlap, 0);
+        Switcher?.SetUnit(_unitPx);
+        Switcher?.SetAnchor(AppSwitcher.SwitcherWidth - SwitcherOverlap + room.Left);
+    }
+
+    /// <summary>How far below the card's top its first row of controls sits (the Quick tab's
+    /// mode circle and Wi-Fi / Bluetooth tiles): the app switcher's tile lines up with it.</summary>
+    const double FirstRow = 197;
+
+    /// <summary>How far the app switcher reaches into the card's shadow room, so its arc sits close
+    /// to the card.</summary>
+    const double SwitcherOverlap = 40;
+
+    /// <summary>The glass under the card and the app switcher's pieces, in one glass window right
+    /// under this one (the same size and place).</summary>
+    void ShowGlass()
+    {
+        if (_hiding) return;
+        if (PresentationSource.FromVisual(this)?.CompositionTarget is not { } target) return;
+        var scale = target.TransformToDevice;
+        int width = (int)Math.Round(ActualWidth * scale.M11), height = (int)Math.Round(ActualHeight * scale.M22);
+        if (width <= 0 || height <= 0) return;
+        var area = new Int32Rect((int)Math.Round(Left * scale.M11), (int)Math.Round(Top * scale.M22), width, height);
+        var shapes = new List<GlassBackdrop.GlassShape> { new(ToGlassPixels(Card, new Rect(Card.RenderSize)), CornerRadiusDip * _unitPx) };
+        if (Switcher != null)
+            foreach (var (piece, radius, opacity) in Switcher.GlassPieces()) shapes.Add(new(ToGlassPixels(Switcher, piece), radius * _unitPx, opacity));
+        _glass.Show(area, shapes);
+    }
+
+    /// <summary>An element's area in physical pixels from this window's (and the glass window's) top-left.</summary>
+    Rect ToGlassPixels(Visual element, Rect local)
+    {
+        var scale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice ?? Matrix.Identity;
+        var area = element.TransformToAncestor(this).TransformBounds(local);
+        return new Rect(area.X * scale.M11, area.Y * scale.M22, area.Width * scale.M11, area.Height * scale.M22);
+    }
+
+    readonly WindowPreview _preview;
+
+    /// <summary>The app switcher's live preview: a window's picture drawn in the glass window
+    /// under the switcher's frame.</summary>
+    bool ShowPreview(IntPtr window, Rect box, double opacity)
+    {
+        if (window == IntPtr.Zero || !IsVisible || Switcher == null)
+        {
+            _preview.Clear();
+            return false;
+        }
+        var area = ToGlassPixels(Switcher, box);
+        return _preview.Show(window, new Int32Rect((int)Math.Round(area.X), (int)Math.Round(area.Y), (int)Math.Round(area.Width), (int)Math.Round(area.Height)),
+            (byte)Math.Round(Math.Clamp(opacity, 0, 1) * 255));
+    }
+
+    void ClipShadow()
+    {
+        var card = new Rect(Card.TranslatePoint(new Point(0, 0), ShadowLayer), Card.RenderSize);
+        var outside = new CombinedGeometry(GeometryCombineMode.Exclude,
+            new RectangleGeometry(new Rect(-1000, -1000, ShadowLayer.ActualWidth + 2000, ShadowLayer.ActualHeight + 2000)),
+            new RectangleGeometry(card, CornerRadiusDip, CornerRadiusDip));
+        outside.Freeze();
+        ShadowLayer.Clip = outside;
     }
 
     /// <summary>Windows scaling changed: redo the sizes that cancel it.</summary>
@@ -228,17 +342,18 @@ public partial class OverlayWindow : Window
         base.OnDpiChanged(oldDpi, newDpi);
         if (Left < -5000) return;  // still parked off-screen (Prewarm)
         PlaceInCorner();
-        if (IsVisible) _glass.ShowAt(this, _unitPx);
+        if (IsVisible) ShowGlass();
     }
 
     public void HidePanel()
     {
-        if (!IsVisible) return;
+        if (!IsVisible || _hiding) return;
         _clock.Stop();
         _net.StopWatching();
-        Hide();
         _glass.Hide();
         _lens.Hide();
+        Switcher?.Dismiss();
+        HideAfterDrawing();
         if (_subPage != null)
         {
             _subPage.OnHidden();
@@ -248,6 +363,33 @@ public partial class OverlayWindow : Window
         CurrentPage.OnHidden();
         _settings.LastPage = CurrentPage.Id;
         _settings.SaveSoon();
+    }
+
+    bool _hiding;
+    EventHandler? _hideWhenDrawn;
+
+    /// <summary>A see-through window shows its last picture again for a moment the next time it's
+    /// shown, so it moves off the screen at once, draws its reset look there (mini app switcher,
+    /// no drop) and only then hides.</summary>
+    void HideAfterDrawing()
+    {
+        _hiding = true;
+        Left = -10000;
+        int frames = 0;
+        _hideWhenDrawn = (_, _) =>
+        {
+            if (++frames < 3) return;
+            StopHiding();
+            Hide();
+        };
+        CompositionTarget.Rendering += _hideWhenDrawn;
+    }
+
+    void StopHiding()
+    {
+        if (_hideWhenDrawn != null) CompositionTarget.Rendering -= _hideWhenDrawn;
+        _hideWhenDrawn = null;
+        _hiding = false;
     }
 
     /// <summary>Screens under the shown one (a screen opened from a screen) and what was selected there.</summary>
@@ -304,7 +446,7 @@ public partial class OverlayWindow : Window
 
     public void Handle(NavCommand command, InputSource source)
     {
-        if (!IsVisible) return;
+        if (!IsVisible || _hiding) return;
         // In MSI's Desktop mode one press can arrive both as a gamepad button and as a key.
         var now = DateTime.UtcNow;
         bool duplicate = command == _lastCommand && source != _lastSource && now - _lastCommandAt < DuplicateWindow;
@@ -312,6 +454,14 @@ public partial class OverlayWindow : Window
         var focused = FocusManager.GetFocusedElement(this) as FrameworkElement;
         Log.Detail($"Command {command} from {source} on {Describe(focused)}{(duplicate ? " (same press seen twice, ignored)" : "")}");
         if (duplicate) return;
+        // The app switcher has the D-pad until B / right from its tile (or LB / RB / Y, which the
+        // panel then handles as usual).
+        if (Switcher is { Active: true } && Switcher.Handle(command))
+        {
+            if (command == NavCommand.Accept && Switcher.SelectedView is { } pressed) _lens.Pulse(pressed);
+            ShowFooter();
+            return;
+        }
 
         bool onTabs = focused != null && Tabs.Children.Contains(focused);
         bool onChip = focused == AppChip;
@@ -339,6 +489,9 @@ public partial class OverlayWindow : Window
                 AppChip.Focus();
                 FocusManager.SetFocusedElement(this, AppChip);
                 break;
+            case NavCommand.Left or NavCommand.Right when focused is FillSlider bar:
+                bar.Nudge(command == NavCommand.Right ? 1 : -1);
+                break;
             case NavCommand.Left or NavCommand.Right when focused is Slider slider:
                 slider.Value = Math.Clamp(
                     slider.Value + (command == NavCommand.Right ? slider.SmallChange : -slider.SmallChange),
@@ -351,6 +504,11 @@ public partial class OverlayWindow : Window
                     FocusControl(next);
                 else if (command == NavCommand.Up)
                     FocusTabs();  // nothing above in the page: up to the tab row
+                else if (command == NavCommand.Left && Switcher?.Enter() == true)
+                {
+                    if (Switcher.SelectedView is { } spot) _lens.Follow(spot);  // the drop flies over
+                    ShowFooter();
+                }
                 break;
             case NavCommand.Accept:
                 if (focused != null) _lens.Pulse(focused);
@@ -520,6 +678,7 @@ public partial class OverlayWindow : Window
             Key.Escape => NavCommand.Back,
             Key.PageUp or Key.Q => NavCommand.PrevPage,
             Key.PageDown or Key.E => NavCommand.NextPage,
+            Key.X => NavCommand.Action,
             _ => null,
         };
         if (command is NavCommand c)
@@ -666,7 +825,8 @@ public partial class OverlayWindow : Window
         return null;
     }
 
-    /// <summary>Renders the panel as laid out now; a background fills in for the glass when given.</summary>
+    /// <summary>Renders the panel's card (without the shadow around it) as laid out now; a
+    /// background fills in for the glass when given.</summary>
     void SaveImage(string path, Brush? background)
     {
         UpdateLayout();
@@ -674,16 +834,21 @@ public partial class OverlayWindow : Window
         UpdateLayout();  // the pill's new width
         var root = (Visual)VisualTreeHelper.GetChild(this, 0);
         var dpi = VisualTreeHelper.GetDpi(this);
-        int width = (int)(ActualWidth * dpi.DpiScaleX), height = (int)(ActualHeight * dpi.DpiScaleY);
-        var bitmap = new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-        bitmap.Render(root);
+        var whole = new RenderTargetBitmap((int)(ActualWidth * dpi.DpiScaleX), (int)(ActualHeight * dpi.DpiScaleY),
+            dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        whole.Render(root);
+        var cardArea = Card.TransformToAncestor(this).TransformBounds(new Rect(Card.RenderSize));
+        int left = (int)Math.Round(cardArea.X * dpi.DpiScaleX), top = (int)Math.Round(cardArea.Y * dpi.DpiScaleY);
+        int width = Math.Min(whole.PixelWidth - left, (int)Math.Round(cardArea.Width * dpi.DpiScaleX));
+        int height = Math.Min(whole.PixelHeight - top, (int)Math.Round(cardArea.Height * dpi.DpiScaleY));
+        var bitmap = new CroppedBitmap(whole, new Int32Rect(left, top, width, height));
         BitmapSource image = bitmap;
         if (background != null)
         {
             var layers = new DrawingVisual();
             using (var dc = layers.RenderOpen())
             {
-                var area = new Rect(0, 0, ActualWidth, ActualHeight);
+                var area = new Rect(0, 0, width / dpi.DpiScaleX, height / dpi.DpiScaleY);
                 dc.DrawRectangle(background, null, area);
                 dc.DrawImage(bitmap, area);
             }

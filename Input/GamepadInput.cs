@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace ClawControl.Input;
 
-public enum NavCommand { Up, Down, Left, Right, Accept, Back, PrevPage, NextPage, Menu }
+public enum NavCommand { Up, Down, Left, Right, Accept, Back, PrevPage, NextPage, Menu, Action }
 
 /// <summary>
 /// Reads the built-in controller through XInput while the panel is open and turns presses into
@@ -17,7 +17,7 @@ public enum NavCommand { Up, Down, Left, Right, Accept, Back, PrevPage, NextPage
 public sealed class GamepadInput : IDisposable
 {
     const ushort DPadUp = 0x0001, DPadDown = 0x0002, DPadLeft = 0x0004, DPadRight = 0x0008;
-    const ushort LeftBumper = 0x0100, RightBumper = 0x0200, ButtonA = 0x1000, ButtonB = 0x2000, ButtonY = 0x8000;
+    const ushort LeftBumper = 0x0100, RightBumper = 0x0200, ButtonA = 0x1000, ButtonB = 0x2000, ButtonX = 0x4000, ButtonY = 0x8000;
     const int RepeatDelayMs = 350, RepeatIntervalMs = 80;
 
     static readonly (ushort Mask, NavCommand Command)[] Map =
@@ -27,6 +27,7 @@ public sealed class GamepadInput : IDisposable
         (ButtonA, NavCommand.Accept), (ButtonB, NavCommand.Back),
         (LeftBumper, NavCommand.PrevPage), (RightBumper, NavCommand.NextPage),
         (ButtonY, NavCommand.Menu),  // the Apps & power menu
+        (ButtonX, NavCommand.Action),  // ends an app in the app switcher
     };
 
     readonly ManualResetEventSlim _active = new(false);

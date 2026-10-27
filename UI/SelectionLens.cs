@@ -19,6 +19,9 @@ sealed class SelectionLens
     const double PressStiffness = 420, PressDamping = 18;
     /// <summary>Gap between a control's edge and the drop's rim (round controls already have one).</summary>
     const double Pad = 3;
+    /// <summary>The gap round buttons build in around their face (padding + border): bare circles
+    /// (the app switcher's apps) get the same, so the drop sits round them like a bubble.</summary>
+    const double RoundGap = 5;
 
     readonly Canvas _layer;
     readonly Visual _root;
@@ -33,10 +36,11 @@ sealed class SelectionLens
     bool _snap = true, _running;
     TimeSpan _last;
 
-    public SelectionLens(Canvas layer, ScrollViewer scroller)
+    /// <param name="root">Everything the drop may sit on (the panel window's root: the card and the app switcher).</param>
+    public SelectionLens(Canvas layer, ScrollViewer scroller, Visual root)
     {
         _layer = layer;
-        _root = (Visual)layer.Parent;
+        _root = root;
         _scroller = scroller;
         _lens = new Border
         {
@@ -88,6 +92,10 @@ sealed class SelectionLens
         _press = 1;
         _pressV = 0;
     }
+
+    /// <summary>Something moved its control without a layout pass (a render transform, like the
+    /// app switcher growing): springs the drop back onto it.</summary>
+    public void Nudge() => Kick();
 
     void Kick()
     {
@@ -208,8 +216,8 @@ sealed class SelectionLens
         var bounds = target.TransformToVisual(_layer).TransformBounds(new Rect(target.RenderSize));
         if (IsRound(target))
         {
-            rect = bounds;
-            radius = bounds.Width / 2;
+            rect = target is Border ? Rect.Inflate(bounds, RoundGap, RoundGap) : bounds;
+            radius = rect.Width / 2;
         }
         else
         {
@@ -239,7 +247,7 @@ sealed class SelectionLens
     }
 
     /// <summary>The corner radius of the control's own outline (its template's outer border).</summary>
-    static double Corner(FrameworkElement element) =>
+    static double Corner(FrameworkElement element) => element is Border own ? own.CornerRadius.TopLeft :
         (VisualTreeHelper.GetChildrenCount(element) > 0 ? VisualTreeHelper.GetChild(element, 0) as Border : null)?.CornerRadius.TopLeft ?? 12;
 
     /// <summary>Circles (mode, power, swatch, media buttons): square with fully rounded corners.</summary>

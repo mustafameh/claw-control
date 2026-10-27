@@ -9,15 +9,26 @@ using ClawControl.Core;
 
 namespace ClawControl.Hardware;
 
-/// <summary>An app with a window: what the Apps &amp; power menu lists (like Alt + Tab).</summary>
+/// <summary>An app with a window: what the app switcher shows (like Alt + Tab).</summary>
 public sealed record RunningApp(int ProcessId, string Name, string? Path, long MemoryBytes, bool NotResponding)
 {
     public ImageSource? Icon { get; init; }
+    /// <summary>Its top window (the one in front of its others): what switching to it brings up.</summary>
+    public IntPtr Window { get; init; }
+    /// <summary>All its windows (what ending it closes).</summary>
+    public IReadOnlyList<IntPtr> Windows { get; init; } = [];
+    /// <summary>Its id in the shell (AppUserModelID), when the window has one: Store apps' real name and icon.</summary>
+    public string? AppId { get; init; }
+    /// <summary>A Store app whose own process couldn't be found (suspended): ProcessId is Windows'
+    /// frame host, which serves every Store app and is never ended.</summary>
+    public bool Hosted { get; init; }
+    /// <summary>Tells apps apart (Store apps can share the frame host's process).</summary>
+    public string Key => AppId ?? ProcessId.ToString();
 }
 
 /// <summary>
 /// Apps with windows (Alt + Tab's rules: visible, not a tool window, not cloaked, no owner),
-/// grouped by process, closing them, and the power actions. Only read when asked (the menu is
+/// grouped by app (Store apps by their shell id: they live in Windows' frame host), closing them, and the power actions. Only read when asked (the menu is
 /// open); nothing watches in the background.
 /// </summary>
 public static class RunningApps
@@ -33,40 +44,171 @@ public static class RunningApps
 
     /// <summary>The app in front (before the panel took focus); null for the desktop / taskbar.</summary>
     public static RunningApp? Describe(IntPtr window) =>
-        window != IntPtr.Zero && IsApp(window) && Process(window) is { } pid && pid != Environment.ProcessId ? App(pid, [window]) : null;
+        window != IntPtr.Zero && IsApp(window) && Identify(window) is { } who ? App(who, [window]) : null;
 
-    /// <summary>Every app with a window, biggest memory first; Claw Control itself left out.</summary>
+    /// <summary>Whose window it is. Store apps' windows belong to Windows' frame host
+    /// (ApplicationFrameWindow): their own process owns the frame's inner CoreWindow, and the
+    /// window's shell id says which app it is even while that's suspended.</summary>
+    static (int Pid, string? AppId, bool Hosted)? Identify(IntPtr window)
+    {
+        if (Process(window) is not { } pid || pid == Environment.ProcessId) return null;
+        string? appId = WindowAppId(window);
+        if (ClassOf(window) != "ApplicationFrameWindow") return (pid, appId, false);
+        int? own = null;
+        EnumChildWindows(window, (child, _) =>
+        {
+            if (ClassOf(child) == "Windows.UI.Core.CoreWindow" && Process(child) is { } app && app != pid) own = app;
+            return own == null;
+        }, IntPtr.Zero);
+        return own is { } real ? (real, appId, false) : (pid, appId, true);
+    }
+
+    /// <summary>Every app with a window, most recently used first (Alt + Tab's order); Claw Control
+    /// itself left out.</summary>
     public static List<RunningApp> List()
     {
-        var byProcess = new Dictionary<int, List<IntPtr>>();
+        var byApp = new Dictionary<string, ((int Pid, string? AppId, bool Hosted) Who, List<IntPtr> Windows)>();
         EnumWindows((window, _) =>
         {
-            if (IsApp(window) && Process(window) is { } pid && pid != Environment.ProcessId)
+            if (IsApp(window) && Identify(window) is { } who)
             {
-                if (!byProcess.TryGetValue(pid, out var windows)) byProcess[pid] = windows = new();
-                windows.Add(window);
+                string key = who.AppId ?? who.Pid.ToString();
+                if (!byApp.TryGetValue(key, out var app)) byApp[key] = app = (who, new());
+                app.Windows.Add(window);
             }
             return true;
         }, IntPtr.Zero);
-        return byProcess.Select(p => App(p.Key, p.Value)).OfType<RunningApp>()
-            .OrderByDescending(a => a.MemoryBytes).ToList();
+        // EnumWindows goes front to back, and the dictionary keeps that order.
+        return byApp.Values.Select(a => App(a.Who, a.Windows)).OfType<RunningApp>().ToList();
     }
 
-    static RunningApp? App(int pid, List<IntPtr> windows)
+    /// <summary>Brings the app's window to the front (restoring it if minimised).</summary>
+    public static void SwitchTo(RunningApp app)
+    {
+        if (app.Window == IntPtr.Zero || !IsWindow(app.Window)) return;
+        if (IsIconic(app.Window)) ShowWindow(app.Window, SwRestore);
+        SetForegroundWindow(app.Window);
+    }
+
+    /// <summary>A sharp icon of about <paramref name="size"/> pixels (the shell's big icons), or the small one.</summary>
+    public static ImageSource? LargeIcon(RunningApp app, int size)
+    {
+        // A Store app's own tile icon (its shell id), else the program file's icon.
+        string?[] sources = [app.AppId != null ? AppsFolder + app.AppId : null, app.Path];
+        foreach (var source in sources.OfType<string>())
+        {
+            string key = $"{source}|{size}";
+            lock (Icons)
+                if (Icons.TryGetValue(key, out var cached)) { if (cached != null) return cached; continue; }
+            ImageSource? icon = null;
+            try
+            {
+                var factoryId = typeof(IShellItemImageFactory).GUID;
+                if (SHCreateItemFromParsingName(source, IntPtr.Zero, ref factoryId, out IShellItemImageFactory factory) == 0)
+                {
+                    // Icon only (no thumbnail of the file), scaled up by the shell if it has no big one.
+                    if (factory.GetImage(new NativeSize { Width = size, Height = size }, 0x4, out IntPtr bitmap) == 0)
+                    {
+                        try { icon = FromAlphaBitmap(bitmap); }
+                        finally { DeleteObject(bitmap); }
+                    }
+                    Marshal.ReleaseComObject(factory);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Big icon for {app.Name}", ex);
+            }
+            lock (Icons) Icons[key] = icon;
+            if (icon != null) return icon;
+        }
+        return app.Icon;
+    }
+
+    const string AppsFolder = @"shell:AppsFolder\";
+    static readonly Dictionary<string, string?> ShellNames = new();
+
+    /// <summary>The name the Start menu shows for a shell id ("Photos", "Settings"), or null.</summary>
+    static string? ShellName(string appId)
+    {
+        lock (ShellNames)
+            if (ShellNames.TryGetValue(appId, out var known)) return known;
+        string? name = null;
+        try
+        {
+            var itemId = typeof(IShellItem).GUID;
+            if (SHCreateItemFromParsingName(AppsFolder + appId, IntPtr.Zero, ref itemId, out IShellItem item) == 0)
+            {
+                if (item.GetDisplayName(0, out IntPtr text) == 0)
+                {
+                    name = Marshal.PtrToStringUni(text);
+                    Marshal.FreeCoTaskMem(text);
+                }
+                Marshal.ReleaseComObject(item);
+            }
+        }
+        catch { }  // not an app the Start menu knows: the program's own name stays
+        lock (ShellNames) ShellNames[appId] = name;
+        return name;
+    }
+
+    /// <summary>The shell id (AppUserModelID) set on a window, which Store apps (and some others) have.</summary>
+    static string? WindowAppId(IntPtr window)
     {
         try
         {
-            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            var storeId = typeof(IPropertyStore).GUID;
+            if (SHGetPropertyStoreForWindow(window, ref storeId, out var store) != 0) return null;
+            try
+            {
+                var key = new PropertyKey { FormatId = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), PropertyId = 5 };
+                if (store.GetValue(ref key, out var value) != 0) return null;
+                try { return value.Type == VtString ? Marshal.PtrToStringUni(value.Pointer) : null; }
+                finally { PropVariantClear(ref value); }
+            }
+            finally { Marshal.ReleaseComObject(store); }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A 32-bit shell bitmap with its alpha kept (CreateBitmapSourceFromHBitmap drops it).</summary>
+    static BitmapSource? FromAlphaBitmap(IntPtr bitmap)
+    {
+        var info = new BitmapInfo();
+        if (GetObject(bitmap, Marshal.SizeOf<BitmapInfo>(), ref info) == 0 || info.BitsPixel != 32 || info.Bits == IntPtr.Zero) return null;
+        int stride = info.WidthBytes, height = Math.Abs(info.Height);
+        var pixels = new byte[stride * height];
+        Marshal.Copy(info.Bits, pixels, 0, pixels.Length);
+        var source = BitmapSource.Create(info.Width, height, 96, 96, PixelFormats.Pbgra32, null, pixels, stride);
+        // Bottom-up bitmaps (positive height) come out upside down.
+        BitmapSource result = info.Height > 0 ? new TransformedBitmap(source, new ScaleTransform(1, -1)) : source;
+        result.Freeze();
+        return result;
+    }
+
+    static RunningApp? App((int Pid, string? AppId, bool Hosted) who, List<IntPtr> windows)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(who.Pid);
             string? path = null;
-            try { path = process.MainModule?.FileName; } catch { }
-            string name = path != null ? FileVersionInfo.GetVersionInfo(path).FileDescription ?? "" : "";
-            if (string.IsNullOrWhiteSpace(name)) name = process.ProcessName;
-            // Browsers and Electron apps run as many processes: count them all.
-            long memory = System.Diagnostics.Process.GetProcessesByName(process.ProcessName).Sum(p =>
+            if (!who.Hosted) try { path = process.MainModule?.FileName; } catch { }
+            string name = (who.AppId != null ? ShellName(who.AppId) : null)
+                ?? (path != null ? FileVersionInfo.GetVersionInfo(path).FileDescription : null) ?? "";
+            if (string.IsNullOrWhiteSpace(name)) name = who.Hosted ? GetWindowTitle(windows[0]) : process.ProcessName;
+            // Browsers and Electron apps run as many processes: count them all. (A suspended Store
+            // app's own process isn't known: no number.)
+            long memory = who.Hosted ? 0 : System.Diagnostics.Process.GetProcessesByName(process.ProcessName).Sum(p =>
             {
                 using (p) { try { return p.WorkingSet64; } catch { return 0; } }
             });
-            return new RunningApp(pid, name.Trim(), path, memory, windows.Any(IsHungAppWindow)) { Icon = Icon(path) };
+            return new RunningApp(who.Pid, name.Trim(), path, memory, windows.Any(IsHungAppWindow))
+            {
+                Icon = Icon(path), Window = windows[0], Windows = windows, AppId = who.AppId, Hosted = who.Hosted,
+            };
         }
         catch
         {
@@ -80,14 +222,11 @@ public static class RunningApps
     {
         try
         {
+            foreach (var window in app.Windows) PostMessage(window, WmClose, IntPtr.Zero, IntPtr.Zero);
+            // Windows' frame host serves every Store app: closing the window is all it takes.
+            if (app.Hosted) return;
             using var process = System.Diagnostics.Process.GetProcessById(app.ProcessId);
-            bool explorer = process.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase);
-            EnumWindows((window, _) =>
-            {
-                if (IsApp(window) && Process(window) == app.ProcessId) PostMessage(window, WmClose, IntPtr.Zero, IntPtr.Zero);
-                return true;
-            }, IntPtr.Zero);
-            if (explorer) return;
+            if (process.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase)) return;
             if (!app.NotResponding && await Task.Run(() => process.WaitForExit((int)wait.TotalMilliseconds))) return;
             Log.Info($"Force-closing {app.Name}");
             process.Kill(entireProcessTree: true);
@@ -120,9 +259,21 @@ public static class RunningApps
         if ((GetWindowLong(window, GwlExStyle) & WsExToolWindow) != 0) return false;
         if (DwmGetWindowAttribute(window, DwmwaCloaked, out int cloaked, sizeof(int)) == 0 && cloaked != 0) return false;
         if (GetWindowTextLength(window) == 0) return false;
+        return !ShellClasses.Contains(ClassOf(window));
+    }
+
+    static string ClassOf(IntPtr window)
+    {
         var className = new StringBuilder(64);
         GetClassName(window, className, className.Capacity);
-        return !ShellClasses.Contains(className.ToString());
+        return className.ToString();
+    }
+
+    static string GetWindowTitle(IntPtr window)
+    {
+        var title = new StringBuilder(GetWindowTextLength(window) + 1);
+        GetWindowText(window, title, title.Capacity);
+        return title.ToString();
     }
 
     static int? Process(IntPtr window) => GetWindowThreadProcessId(window, out uint pid) != 0 ? (int)pid : null;
@@ -149,7 +300,67 @@ public static class RunningApps
         }
     }
 
-    const int GwOwner = 4, GwlExStyle = -20, WsExToolWindow = 0x80, DwmwaCloaked = 14, WmClose = 0x10;
+    const int GwOwner = 4, GwlExStyle = -20, WsExToolWindow = 0x80, DwmwaCloaked = 14, WmClose = 0x10, SwRestore = 9;
+
+    [StructLayout(LayoutKind.Sequential)] struct NativeSize { public int Width, Height; }
+    [StructLayout(LayoutKind.Sequential)] struct PropertyKey { public Guid FormatId; public int PropertyId; }
+
+    /// <summary>PROPVARIANT, only as far as a string value needs (24 bytes on x64).</summary>
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
+    struct PropVariant
+    {
+        [FieldOffset(0)] public ushort Type;
+        [FieldOffset(8)] public IntPtr Pointer;
+    }
+
+    const ushort VtString = 31;  // VT_LPWSTR
+
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore
+    {
+        [PreserveSig] int GetCount(out uint count);
+        [PreserveSig] int GetAt(uint index, out PropertyKey key);
+        [PreserveSig] int GetValue(ref PropertyKey key, out PropVariant value);
+    }
+
+    [ComImport, Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellItem
+    {
+        [PreserveSig] int BindToHandler(IntPtr bindContext, ref Guid handler, ref Guid id, out IntPtr result);
+        [PreserveSig] int GetParent(out IntPtr parent);
+        [PreserveSig] int GetDisplayName(int form, out IntPtr name);
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+    static extern int SHCreateItemFromParsingName(string path, IntPtr bindContext, ref Guid id, [MarshalAs(UnmanagedType.Interface)] out IShellItem item);
+    [DllImport("shell32.dll")]
+    static extern int SHGetPropertyStoreForWindow(IntPtr window, ref Guid id, [MarshalAs(UnmanagedType.Interface)] out IPropertyStore store);
+    [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant value);
+    [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumProc proc, IntPtr param);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct BitmapInfo
+    {
+        public int Type, Width, Height, WidthBytes;
+        public ushort Planes, BitsPixel;
+        public IntPtr Bits;
+    }
+
+    [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellItemImageFactory
+    {
+        [PreserveSig] int GetImage(NativeSize size, int flags, out IntPtr bitmap);
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+    static extern int SHCreateItemFromParsingName(string path, IntPtr bindContext, ref Guid id, [MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory factory);
+    [DllImport("gdi32.dll")] static extern int GetObject(IntPtr bitmap, int size, ref BitmapInfo info);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr bitmap);
+    [DllImport("user32.dll")] static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
 
     delegate bool EnumProc(IntPtr window, IntPtr param);
 
