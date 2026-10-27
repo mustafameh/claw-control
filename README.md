@@ -28,7 +28,7 @@ replaces them with a panel that opens instantly (it's pre-rendered and waiting),
 by the controller (or touch), never lets the controller reach the game behind it, and uses
 almost nothing while it's closed.
 
-<img src="docs/media/hero.jpg" alt="The panel open over a game, with the performance overlay at the top" width="100%">
+<img src="docs/media/hero.jpg" alt="The panel open over a game, with the app switcher on the left" width="100%">
 
 ## Features
 
@@ -37,7 +37,7 @@ almost nothing while it's closed.
 | <img src="docs/media/screens/quick.jpg" width="250"><br>**Quick tab**<br>Volume, brightness, Wi-Fi, Bluetooth, controller mode, now playing | <img src="docs/media/screens/power.jpg" width="250"><br>**Power modes**<br>Super Battery, Balanced, Performance, or your own watts | <img src="docs/media/screens/overlay.jpg" width="250"><br>**Performance overlay**<br>FPS, power, temps, CPU, GPU, RAM… in any corner |
 | <img src="docs/media/screens/sound.jpg" width="250"><br>**Sound**<br>Output device and per-app volume | <img src="docs/media/screens/wifi.jpg" width="250"><br>**Wi-Fi and Bluetooth**<br>Switch them, connect networks and headphones | <img src="docs/media/screens/graphics.jpg" width="250"><br>**Graphics tab**<br>FPS limit, frame gen, upscaling, sharpening, FreeSync |
 | <img src="docs/media/screens/resolution.jpg" width="250"><br>**Display**<br>Resolution, refresh rate, Windows scaling, graphics memory | <img src="docs/media/screens/controller.jpg" width="250"><br>**Controller tab**<br>Xbox, PlayStation, mouse or off; lights, rumble, gyro | <img src="docs/media/screens/lights.jpg" width="250"><br>**Lights**<br>Colours, effects, speed, brightness |
-| <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**Apps and power**<br>App switcher with live previews, end apps, sleep, restart |
+| <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**App switcher**<br>Live previews, switch or end apps, close background apps |
 
 - **Instant:** the panel is built once at startup and only shown and hidden.
 - **Controller-first:** D-pad to move, **A** select, **B** back, **LB / RB** tabs,
