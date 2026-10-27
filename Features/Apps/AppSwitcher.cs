@@ -234,6 +234,23 @@ sealed class AppSwitcher : Canvas
         }
     }
 
+    /// <summary>The app in front, once the panel has found out whose window it is (that can take
+    /// a moment for a game): it takes the tile and leaves the arc.</summary>
+    public void SetFront(RunningApp? front)
+    {
+        if (!_open) return;
+        bool same = front?.Key == _front?.Key;
+        _front = front;
+        if (same)
+        {
+            Refresh();  // same app, fresh numbers (memory)
+            return;
+        }
+        if (!Active && front != null) _spot = Spot.Hub;
+        Fill(_lastList, keep: Selected?.App?.Key);
+        Refresh();
+    }
+
     /// <summary>The panel closed.</summary>
     public void Dismiss()
     {

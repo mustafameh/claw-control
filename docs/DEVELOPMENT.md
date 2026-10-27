@@ -231,6 +231,9 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   to page 2, left from its first column flips back; dots show / tap the page.
 - Touch: the panel's ScrollViewer (PanningMode) takes every finger slide, so `FillSlider`
   captures the touch itself (Preview touch events) and follows the finger.
+- Saying whose the front window is (`RunningApps.Describe`: shell id, process, memory) took ~0.8 s
+  with a game in front (measured 2026-10-27): the panel shows at once and fills the switcher's
+  tile from the background (`DescribeFront`), reusing the last answer for the same window.
 - A see-through (layered) window shows its last picture again for a moment when it's shown next
   time. `HidePanel` moves the panel off-screen at once, lets it draw its reset look (mini app
   switcher, no drop) for a few frames, then hides it (`HideAfterDrawing`).

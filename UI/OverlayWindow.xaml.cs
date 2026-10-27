@@ -191,6 +191,15 @@ public partial class OverlayWindow : Window
     public AppsPowerScreen? AppsMenu { get; set; }
 
     RunningApp? _frontApp;
+    IntPtr _frontWindow;
+
+    async Task DescribeFront(IntPtr window)
+    {
+        var app = await Task.Run(() => RunningApps.Describe(window));
+        if (!IsVisible || window != _frontWindow) return;
+        _frontApp = app;
+        Switcher?.SetFront(app);
+    }
 
     /// <summary>The chip is the Power menu's sign (the app in front is on the switcher's tile).</summary>
     void ShowFrontApp()
@@ -223,11 +232,23 @@ public partial class OverlayWindow : Window
         if (!inMenu) OpenSubPage(AppsMenu);
     }
 
+    /// <summary>When the MSI button was pressed (Stopwatch ticks), for the opening timing.</summary>
+    public long PressedAt { get; set; }
+
     public void ShowPanel()
     {
         StopHiding();  // opened again while still closing
-        // Before the panel takes focus: the app in front (the switcher's tile).
-        _frontApp = RunningApps.Front();
+        var timing = System.Diagnostics.Stopwatch.StartNew();
+        double queued = PressedAt != 0 ? System.Diagnostics.Stopwatch.GetElapsedTime(PressedAt).TotalMilliseconds : -1;
+        PressedAt = 0;
+        // Before the panel takes focus: the window in front (the switcher's tile). Saying whose it
+        // is can take most of a second for a game (Windows asks the busy window), so the last
+        // answer for the same window shows at once and a fresh one follows from the background.
+        var frontWindow = RunningApps.FrontWindow();
+        if (frontWindow != _frontWindow) _frontApp = null;
+        _frontWindow = frontWindow;
+        _ = DescribeFront(frontWindow);
+        double front = timing.Elapsed.TotalMilliseconds;
         PlaceInCorner();
         ShowPage(_pageIndex);
         UpdateHeader();
@@ -235,11 +256,24 @@ public partial class OverlayWindow : Window
         _net.StartWatching();
         _ = _net.RefreshAsync();
         _shownAt = DateTime.UtcNow;
+        double page = timing.Elapsed.TotalMilliseconds;
         // Mini again before the first frame (it may have been full size when the panel closed).
         Switcher?.Open(_frontApp);
+        double switcher = timing.Elapsed.TotalMilliseconds;
         Show();
         UpdateLayout();
         ShowGlass();
+        double shown = timing.Elapsed.TotalMilliseconds;
+        // Opening cost, to the first frame drawn after Show (detailed log).
+        int frames = 0;
+        EventHandler? firstFrame = null;
+        firstFrame = (_, _) =>
+        {
+            if (++frames < 2) return;
+            CompositionTarget.Rendering -= firstFrame;
+            Log.Detail($"Open timing: queued {queued:0} ms, front app {front:0}, page {page - front:0}, switcher {switcher - page:0}, show {shown - switcher:0}, first frame at {timing.Elapsed.TotalMilliseconds:0} ms");
+        };
+        CompositionTarget.Rendering += firstFrame;
         if (!NativeWindow.BringToFront(new WindowInteropHelper(this).Handle))
             Log.Info("Panel shown but Windows kept another app in the foreground");
         Activate();

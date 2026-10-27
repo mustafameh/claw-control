@@ -196,7 +196,10 @@ public partial class App : Application
             _buttons.Pressed += code =>
             {
                 if (code == MsiButtonWatcher.CenterButton && _settings.TakeOverMsiButton)
-                    Dispatcher.BeginInvoke(() => _overlay?.Toggle());
+                {
+                    long pressed = System.Diagnostics.Stopwatch.GetTimestamp();
+                    Dispatcher.BeginInvoke(() => { if (_overlay != null) { _overlay.PressedAt = pressed; _overlay.Toggle(); } });
+                }
             };
             _buttons.Start();
         }

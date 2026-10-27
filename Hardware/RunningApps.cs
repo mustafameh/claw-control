@@ -37,8 +37,8 @@ public static class RunningApps
     // Windows' own shell windows aren't apps to close.
     static readonly string[] ShellClasses = { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow" };
 
-    /// <summary>The app in front right now (call before the panel takes focus).</summary>
-    public static RunningApp? Front() => Describe(GetForegroundWindow());
+    /// <summary>The window in front right now (call before the panel takes focus); Describe says whose.</summary>
+    public static IntPtr FrontWindow() => GetForegroundWindow();
 
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
 

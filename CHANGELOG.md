@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 (2026-10-27)
+
+- **Fixed:** with a game in front the panel took almost a second to appear (finding out which app
+  is in front for the app switcher waited on the busy game window). It opens at once again; the
+  switcher's tile fills in a moment later.
+
 ## 0.1.3 (2026-10-27)
 
 - **Fixed:** with no app in front (the desktop, Start or Search) the app switcher showed an empty
