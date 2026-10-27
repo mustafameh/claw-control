@@ -8,13 +8,15 @@ namespace ClawControl.Input;
 public enum InputSource { Gamepad, Keyboard, Mouse }
 
 /// <summary>
-/// Makes the panel behave the same in MSI's Desktop mode as in handheld (XInput) mode.
+/// Keeps the controller's keyboard and mouse input from everything behind the open panel and
+/// turns it into panel commands.
 ///
-/// In Desktop mode the controller stops reporting as a gamepad and instead acts as a mouse and
-/// keyboard: A is a (double) left click, B a right click, LB / RB are Ctrl + Numpad − / +, and
-/// the stick moves the cursor. While the panel is open, low-level hooks (which only exist while
-/// it is open) swallow all of that so nothing behind the panel reacts, and turn it into panel
-/// commands instead. Touch input is never blocked.
+/// In gamepad mode the panel mapping (ControllerService) has the chip send keys instead of
+/// buttons while the panel is open (Input/PanelKeys). In MSI's Desktop mode the controller acts
+/// as a mouse and keyboard: A is a (double) left click, B a right click, the D-pad sends arrow
+/// keys and the stick moves the cursor. Low-level hooks (which only exist while the panel is
+/// open) swallow all of that before any app sees it. Touch input is never blocked. Keys are kept
+/// from raw-input readers too; mouse movement isn't (Windows hands that out before the hooks).
 ///
 /// Windows silently removes a low-level hook that ever answers too slowly, so the hot paths are
 /// compiled ahead of time, the hook thread runs at high priority, and while the panel is open the
@@ -30,7 +32,7 @@ public sealed class DesktopInputBlocker
     const int WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202,
         WM_RBUTTONDOWN = 0x0204, WM_RBUTTONUP = 0x0205, WM_MBUTTONDOWN = 0x0207, WM_MBUTTONUP = 0x0208,
         WM_MOUSEWHEEL = 0x020A, WM_XBUTTONDOWN = 0x020B, WM_XBUTTONUP = 0x020C, WM_MOUSEHWHEEL = 0x020E;
-    const uint LLKHF_UP = 0x80;
+    const uint LLKHF_EXTENDED = 0x01, LLKHF_UP = 0x80;
     const uint TouchSignatureMask = 0xFFFFFF00, TouchSignature = 0xFF515700;
     const ushort ProbeKey = 0x87;  // F24: no keyboard has it, and the probe is swallowed anyway
     const int MouseIdBase = 0x1000;
@@ -38,20 +40,21 @@ public sealed class DesktopInputBlocker
     const long CloseGraceMs = 400, MaxHoldMs = 3000;
     // MSI sends A as a double click; the second click within this time is the same press.
     const long ClickDebounceMs = 350;
-    // Stick-as-mouse: this much cursor travel is one step. Pauses longer than StickResetMs start over.
-    const int StickStepPixels = 160;
-    const long StickResetMs = 300;
     const long ProbeIntervalMs = 2000, ProbeTimeoutMs = 300;
-    // Held direction keys repeat at the gamepad's pace instead of Windows' ~30 per second.
-    const long KeyRepeatMs = 120;
+    // A held direction repeats at the gamepad's pace (GamepadInput), not at Windows' key repeat.
+    const long RepeatDelayMs = 350, RepeatIntervalMs = 80;
+    const uint TimerMs = 20;
 
     readonly object _gate = new();
     readonly HashSet<int> _held = new();          // presses we swallowed, so we swallow their release too
     readonly HookProc _keyboardProc, _mouseProc;  // kept alive for as long as the hooks exist
     bool _open;
-    long _closedAtMs, _lastClickMs, _lastMoveMs, _lastKeyRepeatMs;
-    int _moveX, _moveY;
-    int _keys, _clicks, _moves, _steps;           // per-opening counts, for the log
+    long _closedAtMs, _lastClickMs;
+    int _keys, _clicks, _moves;                   // per-opening counts, for the log
+    NavCommand? _repeat;                          // the direction held down, repeated by the timer
+    uint _repeatVk;
+    long _repeatSinceMs, _lastRepeatMs;
+    TaskCompletionSource? _released;              // someone waits for the last held press to be let go
     Thread? _thread;
 
     // Hook thread only.
@@ -82,8 +85,10 @@ public sealed class DesktopInputBlocker
         // Compile the hook paths now; a slow first call (JIT) can get a hook removed by Windows.
         const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
         foreach (var name in new[] { nameof(KeyboardHook), nameof(MouseHook), nameof(HandleMouse),
-                                     nameof(StickStep), nameof(Swallow), nameof(Translate), nameof(LogLater) })
+                                     nameof(Swallow), nameof(Translate), nameof(LogLater) })
             RuntimeHelpers.PrepareMethod(typeof(DesktopInputBlocker).GetMethod(name, all)!.MethodHandle);
+        RuntimeHelpers.PrepareMethod(typeof(PanelKeys).GetMethod(nameof(PanelKeys.Translate))!.MethodHandle);
+        RuntimeHelpers.PrepareMethod(typeof(PanelKeys).GetMethod(nameof(PanelKeys.IsPanelKey))!.MethodHandle);
         IntPtr scratch = Marshal.AllocHGlobal(64);
         try
         {
@@ -94,7 +99,6 @@ public sealed class DesktopInputBlocker
         {
             Marshal.FreeHGlobal(scratch);
         }
-        GetPhysicalCursorPos(out _);
     }
 
     public DesktopInputBlocker()
@@ -108,8 +112,8 @@ public sealed class DesktopInputBlocker
         lock (_gate)
         {
             _open = true;
-            _moveX = _moveY = 0;
-            _keys = _clicks = _moves = _steps = 0;
+            _keys = _clicks = _moves = 0;
+            _repeat = null;
             if (_thread != null) return;
             _thread = new Thread(Run) { IsBackground = true, Name = "Input blocker", Priority = ThreadPriority.Highest };
             _thread.Start();
@@ -121,17 +125,40 @@ public sealed class DesktopInputBlocker
         lock (_gate)
         {
             _open = false;
+            _repeat = null;
             _closedAtMs = Environment.TickCount64;
-            LogDetail($"Panel closed. Controller input while open: {_keys} keys, {_clicks} clicks, " +
-                     $"{_moves} stick moves -> {_steps} steps");
+            LogDetail($"Panel closed. Controller input while open: {_keys} keys, {_clicks} clicks, {_moves} mouse moves");
         }
+    }
+
+    /// <summary>
+    /// Completes once every press swallowed while the panel was open has been let go (at most
+    /// after <paramref name="max"/>). The press that closed the panel (B) is still held when it
+    /// closes: give the controller back before it's let go and the game gets that press too.
+    /// </summary>
+    public Task WhenReleasedAsync(TimeSpan max)
+    {
+        lock (_gate)
+        {
+            if (_held.Count == 0) return Task.CompletedTask;
+            _released ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            return _released.Task.WaitAsync(max).ContinueWith(_ => { }, TaskScheduler.Default);
+        }
+    }
+
+    /// <summary>Nothing is held any more: wake whoever waits. Call with _gate held.</summary>
+    void NoteReleased()
+    {
+        if (_held.Count > 0 || _released == null) return;
+        _released.TrySetResult();
+        _released = null;
     }
 
     void Run()
     {
         InstallHooks();
         // Low-level hooks need a message loop on the thread that installed them.
-        UIntPtr timer = SetTimer(IntPtr.Zero, UIntPtr.Zero, 100, IntPtr.Zero);
+        UIntPtr timer = SetTimer(IntPtr.Zero, UIntPtr.Zero, TimerMs, IntPtr.Zero);
         try
         {
             while (GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
@@ -140,6 +167,7 @@ public sealed class DesktopInputBlocker
                 {
                     if (ShouldStop()) break;
                     CheckHooksAlive();
+                    RepeatHeldDirection();
                 }
                 DispatchMessage(ref msg);
             }
@@ -202,6 +230,22 @@ public sealed class DesktopInputBlocker
         }
     }
 
+    /// <summary>Holding a direction keeps moving (sliders), at the gamepad's pace. Hook thread.</summary>
+    void RepeatHeldDirection()
+    {
+        NavCommand? command = null;
+        lock (_gate)
+        {
+            long now = Environment.TickCount64;
+            if (_open && _repeat != null && now - _repeatSinceMs >= RepeatDelayMs && now - _lastRepeatMs >= RepeatIntervalMs)
+            {
+                _lastRepeatMs = now;
+                command = _repeat;
+            }
+        }
+        if (command is NavCommand c) Command?.Invoke(c, InputSource.Keyboard);
+    }
+
     static Input KeyInput(ushort vk, uint flags) =>
         new() { Type = 1, U = new InputUnion { Keyboard = new KeyboardInput { Vk = vk, Flags = flags, Extra = (UIntPtr)ProbeMarker } } };
 
@@ -214,6 +258,7 @@ public sealed class DesktopInputBlocker
             if (sinceClose < CloseGraceMs) return false;
             if (_held.Count > 0 && sinceClose < MaxHoldMs) return false;
             _held.Clear();
+            NoteReleased();
             _thread = null;
             return true;
         }
@@ -231,7 +276,9 @@ public sealed class DesktopInputBlocker
             return true;
         }
         // Only swallow releases of presses we swallowed; anything else must reach its app.
-        return _held.Remove(id);
+        if (!_held.Remove(id)) return false;
+        NoteReleased();
+        return true;
     }
 
     /// <summary>
@@ -256,37 +303,32 @@ public sealed class DesktopInputBlocker
                 return 1;
             }
             bool isPress = (info.Flags & LLKHF_UP) == 0;
+            bool extended = (info.Flags & LLKHF_EXTENDED) != 0;
             NavCommand? command = null;
             bool swallow;
             lock (_gate)
             {
-                // A held key repeats its press about 30 times a second without releasing.
+                // A held key repeats its press about 30 times a second without releasing; those
+                // repeats are dropped (the timer repeats a held direction at the gamepad's pace).
                 bool repeat = isPress && _held.Contains((int)info.VkCode);
                 swallow = marker != OwnInputMarker && !PassesThrough(info.VkCode) && Swallow(isPress, (int)info.VkCode);
-                if (swallow && isPress && _open)
+                if (swallow && isPress && _open && !repeat)
                 {
-                    command = Translate(info.VkCode);
-                    if (!repeat)
+                    command = PanelKeys.Translate(info.VkCode, info.ScanCode, extended) ?? Translate(info.VkCode);
+                    _keys++;
+                    if (command is NavCommand.Up or NavCommand.Down or NavCommand.Left or NavCommand.Right)
                     {
-                        _keys++;
-                        _lastKeyRepeatMs = Environment.TickCount64;
-                        if (Log.Detailed) LogDetail($"Key 0x{info.VkCode:X2} -> {(command?.ToString() ?? "blocked")}");
+                        _repeat = command;
+                        _repeatVk = info.VkCode;
+                        _repeatSinceMs = _lastRepeatMs = Environment.TickCount64;
                     }
-                    else if (command is NavCommand.Up or NavCommand.Down or NavCommand.Left or NavCommand.Right
-                             && Environment.TickCount64 - _lastKeyRepeatMs >= KeyRepeatMs)
-                    {
-                        // Holding a direction keeps moving, at the same pace as the gamepad.
-                        _lastKeyRepeatMs = Environment.TickCount64;
-                    }
-                    else
-                    {
-                        // Holding anything else (e.g. a page switch) counts once.
-                        command = null;
-                    }
+                    if (Log.Detailed) LogDetail($"Key 0x{info.VkCode:X2} (scan 0x{info.ScanCode:X2}) -> {(command?.ToString() ?? "blocked")}");
                 }
+                if (!isPress && info.VkCode == _repeatVk) _repeat = null;
             }
             if (command is NavCommand c) Command?.Invoke(c, InputSource.Keyboard);
-            if (swallow && _open) NoteDesktopInput();
+            // The panel mapping's keys are expected; anything else means MSI went to Desktop mode.
+            if (swallow && _open && !PanelKeys.IsPanelKey(info.VkCode, info.ScanCode, extended)) NoteDesktopInput();
             if (swallow) return 1;
         }
         return CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
@@ -356,12 +398,9 @@ public sealed class DesktopInputBlocker
             case WM_MOUSEHWHEEL:
                 return Active;
             case WM_MOUSEMOVE:
-                if (_open)
-                {
-                    _moves++;
-                    command = StickStep(info, now);
-                    if (command != null) _steps++;
-                }
+                // The stick (Desktop mode): swallowed, but not used to move the selection, as in
+                // gamepad mode, where the sticks still reach the game (docs/HARDWARE.md).
+                if (_open) _moves++;
                 return Active;
             default:
                 return false;
@@ -369,29 +408,10 @@ public sealed class DesktopInputBlocker
     }
 
     /// <summary>
-    /// The cursor stays put while we swallow movement, so each move event's distance from the
-    /// cursor is how far the stick pushed. Enough travel in one direction counts as one step.
-    /// </summary>
-    NavCommand? StickStep(MouseHookData info, long now)
-    {
-        // Hook coordinates are physical pixels; GetCursorPos can be scaled, so use the physical one.
-        if (!GetPhysicalCursorPos(out var cursor)) return null;
-        if (now - _lastMoveMs > StickResetMs) _moveX = _moveY = 0;
-        _lastMoveMs = now;
-        _moveX += info.X - cursor.X;
-        _moveY += info.Y - cursor.Y;
-        if (Math.Abs(_moveX) < StickStepPixels && Math.Abs(_moveY) < StickStepPixels) return null;
-        var step = Math.Abs(_moveX) > Math.Abs(_moveY)
-            ? (_moveX > 0 ? NavCommand.Right : NavCommand.Left)
-            : (_moveY > 0 ? NavCommand.Down : NavCommand.Up);
-        _moveX = _moveY = 0;
-        return step;
-    }
-
-    /// <summary>
-    /// Keys to panel commands. In Desktop mode the triggers send Ctrl + Numpad − / + (zoom) and
-    /// LB / RB send nothing; triggers deliberately do nothing here, matching gamepad mode. Pages
-    /// switch with LB / RB once Command Center has the controller in gamepad mode.
+    /// Keys to panel commands (after PanelKeys, for the panel mapping's keys). In Desktop mode the
+    /// triggers send Ctrl + Numpad − / + (zoom) and LB / RB send nothing; triggers deliberately do
+    /// nothing here, matching gamepad mode. Pages switch with LB / RB once Command Center has the
+    /// controller in gamepad mode.
     /// </summary>
     static NavCommand? Translate(uint vk) => vk switch
     {
@@ -430,12 +450,6 @@ public sealed class DesktopInputBlocker
         public int X, Y;
         public uint MouseData, Flags, Time;
         public UIntPtr ExtraInfo;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct Point
-    {
-        public int X, Y;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -486,7 +500,6 @@ public sealed class DesktopInputBlocker
     [DllImport("user32.dll")] static extern IntPtr DispatchMessage(ref Msg msg);
     [DllImport("user32.dll")] static extern UIntPtr SetTimer(IntPtr hWnd, UIntPtr id, uint elapseMs, IntPtr proc);
     [DllImport("user32.dll")] static extern bool KillTimer(IntPtr hWnd, UIntPtr id);
-    [DllImport("user32.dll")] static extern bool GetPhysicalCursorPos(out Point point);
     [DllImport("user32.dll")] static extern uint SendInput(uint count, Input[] inputs, int size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string? name);
 }

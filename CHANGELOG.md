@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 (2026-10-27)
+
+- **Fixed:** in Xbox mode the game and Steam Big Picture behind the panel also reacted to the
+  buttons. While the panel is open the controller now sends its buttons to the panel only (a
+  temporary mapping in the controller, put back when the panel closes; the controller stays
+  connected). The sticks can't be held back this way and still reach the game, so the panel no
+  longer moves with the left stick: use the D-pad.
+- Changes to buttons and the gyro on the Controller tab take effect when the panel closes.
+
 ## 0.1.0 (first public release)
 
 First release, for the MSI Claw A8 only (built and tested on one Claw A8).

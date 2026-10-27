@@ -40,10 +40,11 @@ almost nothing while it's closed.
 | <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**Apps & power**<br>End a frozen game, running apps, sleep, restart |
 
 - **Instant:** the panel is built once at startup and only shown and hidden.
-- **Controller-first:** D-pad / left stick to move, **A** select, **B** back, **LB / RB** tabs,
+- **Controller-first:** D-pad to move, **A** select, **B** back, **LB / RB** tabs,
   **Y** Apps & power. Touch works everywhere too.
-- **Never leaks input:** while the panel is open the controller drives only the panel, in Xbox
-  and in MSI's Desktop (mouse) mode.
+- **Keeps presses from the game:** while the panel is open the buttons and triggers drive only
+  the panel, not the game or Steam behind it, in Xbox and in MSI's Desktop (mouse) mode (the
+  sticks still reach the game).
 - **Same size everywhere:** the panel keeps its size and stays pinned to the right at any
   resolution or Windows scaling.
 - **Light on battery:** with the panel closed it uses about 0.3 % of one CPU core and polls
@@ -72,7 +73,7 @@ Full guide, including what gets installed and how to check the download:
 | Do this | Xbox buttons | PlayStation names |
 |---|---|---|
 | Open / close the panel | MSI Center M button | MSI Center M button |
-| Move | D-pad or left stick | D-pad or left stick |
+| Move | D-pad | D-pad |
 | Select, switch on / off | A | ✕ Cross |
 | Back / close | B | ○ Circle |
 | Previous / next tab | LB / RB | L1 / R1 |

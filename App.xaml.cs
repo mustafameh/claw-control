@@ -139,8 +139,14 @@ public partial class App : Application
             else
             {
                 _inputBlocker.Close();
-                _controllerMode.Leave();
-                _controller.PanelClosed();  // applies a mode chosen on the Controller tab
+                // B closes the panel while it's still held: hand the controller back only once
+                // it's let go, or the game behind would get that B too.
+                var letGo = _inputBlocker.WhenReleasedAsync(TimeSpan.FromSeconds(3));
+                _controller.PanelClosed(letGo);  // the real button mapping back, then a mode chosen on the Controller tab
+                letGo.ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+                {
+                    if (!_overlay.IsVisible) _controllerMode.Leave();
+                }));
             }
         };
 
@@ -237,7 +243,8 @@ public partial class App : Application
         _takeover?.Dispose();
         _buttons?.Dispose();
         _inputBlocker?.Close();
-        // Quitting from the Settings page happens with the panel open: put the controller back first.
+        // Quitting can happen with the panel open: put the controller back first.
+        _controller?.EndPanelMapping(TimeSpan.FromSeconds(2));
         _controllerMode?.Leave();
         _controllerMode?.WaitForPending(TimeSpan.FromSeconds(3));
         _perfOverlay?.Shutdown(TimeSpan.FromSeconds(3));

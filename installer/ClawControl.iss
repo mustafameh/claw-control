@@ -1,10 +1,10 @@
 ; Setup program for Claw Control (Inno Setup 6). Built by build-release.ps1:
-;   ISCC.exe /DAppVersion=0.1.0 /DSourceDir=<app files> installer\ClawControl.iss
+;   ISCC.exe /DAppVersion=0.1.1 /DSourceDir=<app files> installer\ClawControl.iss
 ; Checks the device and prerequisites before installing anything, installs to
 ; C:\Program Files\ClawControl, registers the "Claw Control" startup task (task.ps1) and starts it.
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\bin\Release\net10.0-windows10.0.19041.0\win-x64"

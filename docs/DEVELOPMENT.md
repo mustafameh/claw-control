@@ -85,13 +85,17 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     the tab pill becomes "‹ Title". Screens can open screens (a stack): B goes back one level, to
     the row that opened it; LB / RB / Y / closing the panel leave all levels.
   - Apps & power (`Features/Apps`): opened by the header chip or **Y**.
-- Input: `GamepadInput` (XInput, polls only while open), `DesktopInputBlocker` (low-level hooks,
-  only while open, so the controller never reaches what's behind the panel in MSI's Desktop
-  mode), `UI/SpatialNavigator` (D-pad focus by on-screen position). `OverlayWindow.Handle` drops
-  the same command arriving from two sources within 150 ms. Left / right on a focused slider move
+- Input: the panel mapping (`ControllerService.PanelMapping`, docs/HARDWARE.md "Panel mapping")
+  has the chip send keys instead of buttons while the panel is open, so games don't see the
+  presses; `DesktopInputBlocker` (low-level hooks, only while open) takes those keys and MSI's
+  Desktop-mode mouse / keyboard before any app and turns them into commands; `GamepadInput`
+  (XInput, polls only while open) covers the moment before the mapping lands. D-pad only: the
+  sticks still reach the game. `UI/SpatialNavigator` (D-pad focus by on-screen position).
+  `OverlayWindow.Handle` drops the same command arriving from two sources within 150 ms. Left / right on a focused slider move
   it; `UI/PanelInput.Accept` gives a slider an A action, `PanelInput.Hint` sets the footer's A
   label, `PanelInput.Steer` lets a control decide a D-pad direction first (paged rows).
 - To give the MSI button back: `"TakeOverMsiButton": false` in settings.json, then restart.
+  `"HideControllerFromGames": false` turns the panel mapping off (games see the panel's presses).
 
 ## Adding a feature
 
@@ -178,9 +182,12 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   the hook thread at high priority, probe it every 2 s (marked F24 + 1 px mouse move;
   zero-distance moves never reach hooks) and reinstall if a probe goes unseen.
 - Hook coordinates are physical pixels: use `GetPhysicalCursorPos`.
+- A key a low-level hook swallows never reaches raw input (`WM_INPUT`) either; mouse movement
+  does (measured with a background raw-input reader). Keep the controller's input to keys.
 - The keyboard blocker must let system keys through: the Claw's volume buttons are VK 0xAD-0xAF
   (media keys 0xB0-0xB3).
-- Ignore OS key auto-repeat for anything but directions (held triggers flipped pages 30×/s).
+- Ignore OS key auto-repeat (held triggers flipped pages 30×/s); a held direction repeats on the
+  hook thread's timer at the gamepad's pace (350 ms, then every 80 ms).
 - D-pad navigation (`SpatialNavigator`) scores edge-to-edge distance + 2 × sideways gap. A wide
   control directly above counts as straight ahead, but a control that overlaps you along the
   direction of travel is measured from its centre.

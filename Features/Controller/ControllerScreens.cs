@@ -218,8 +218,9 @@ public sealed class TriggersScreen : ControllerScreen
         return meter;
     }
 
-    public override void OnShown() { base.OnShown(); _live.Start(); }
-    public override void OnHidden() { base.OnHidden(); _live.Stop(); }
+    // The live meters need the triggers through the panel mapping while this screen shows.
+    public override void OnShown() { base.OnShown(); _live.Start(); Pad.SetTriggersLive(true); }
+    public override void OnHidden() { base.OnHidden(); _live.Stop(); Pad.SetTriggersLive(false); }
 
     protected override void Refresh()
     {

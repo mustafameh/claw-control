@@ -46,7 +46,16 @@ Claw models, which the author doesn't own and hasn't tested. If you see this on 
   mode while the panel is open, and switches it back when the panel closes. If MSI Center M isn't
   installed or running, that can't happen: switch to Xbox mode (Quick tab mode circle, or MSI
   Center M) and try again.
-- The D-pad, left stick, A, B, LB / RB and Y work in the panel; touch always works too.
+- The D-pad, A, B, LB / RB and Y work in the panel; touch always works too. The sticks don't
+  move the selection (they still reach the game behind the panel).
+
+## The game reacts while the panel is open
+
+- Button presses shouldn't reach it: while the panel is open the controller sends them to the
+  panel only. If they do, [report it](#reporting-a-bug) with the game, and `"DetailedLog": true`
+  in `settings.json` for the log.
+- The sticks do still reach the game; the controller can't hold them back. Leave them alone while
+  the panel is open.
 
 ## A graphics setting doesn't change my game
 

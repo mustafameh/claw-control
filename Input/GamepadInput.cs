@@ -9,12 +9,15 @@ public enum NavCommand { Up, Down, Left, Right, Accept, Back, PrevPage, NextPage
 /// Reads the built-in controller through XInput while the panel is open and turns presses into
 /// navigation commands. Holding a direction repeats it (useful on sliders). Polling stops
 /// completely while the panel is hidden, so it costs no battery during games.
+///
+/// With the panel mapping on (ControllerService) XInput sees no buttons and DesktopInputBlocker
+/// gets them as keys instead; this covers the moment before it lands and setups without it. The
+/// D-pad only: the sticks still reach the game behind the panel, so the panel doesn't use them.
 /// </summary>
 public sealed class GamepadInput : IDisposable
 {
     const ushort DPadUp = 0x0001, DPadDown = 0x0002, DPadLeft = 0x0004, DPadRight = 0x0008;
     const ushort LeftBumper = 0x0100, RightBumper = 0x0200, ButtonA = 0x1000, ButtonB = 0x2000, ButtonY = 0x8000;
-    const short StickThreshold = 16000;
     const int RepeatDelayMs = 350, RepeatIntervalMs = 80;
 
     static readonly (ushort Mask, NavCommand Command)[] Map =
@@ -89,7 +92,7 @@ public sealed class GamepadInput : IDisposable
                 continue;
             }
 
-            ushort buttons = WithLeftStick(state.Gamepad);
+            ushort buttons = state.Gamepad.Buttons;
             // Ignore whatever was already held when the panel opened.
             ushort pressed = previous is ushort p ? (ushort)(buttons & ~p) : (ushort)0;
             previous = buttons;
@@ -120,16 +123,6 @@ public sealed class GamepadInput : IDisposable
 
             Thread.Sleep(16);
         }
-    }
-
-    static ushort WithLeftStick(XInputGamepad pad)
-    {
-        ushort buttons = pad.Buttons;
-        if (pad.ThumbLY > StickThreshold) buttons |= DPadUp;
-        if (pad.ThumbLY < -StickThreshold) buttons |= DPadDown;
-        if (pad.ThumbLX < -StickThreshold) buttons |= DPadLeft;
-        if (pad.ThumbLX > StickThreshold) buttons |= DPadRight;
-        return buttons;
     }
 
     static int FindController()

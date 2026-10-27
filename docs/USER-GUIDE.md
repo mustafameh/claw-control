@@ -21,14 +21,15 @@ instantly because it's always ready in the background.
 - **Close:** press the MSI Center M button again, press **B** (on the first level), or tap
   anywhere outside the panel.
 
-While the panel is open, the controller only drives the panel: nothing reaches the game behind
-it, in Xbox mode or in MSI's Desktop (mouse) mode.
+While the panel is open, the buttons and triggers only drive the panel: the game behind it (and
+Steam) doesn't see them, in Xbox mode or in MSI's Desktop (mouse) mode. The sticks still reach
+the game, so the panel doesn't use them: move with the D-pad.
 
 ## Controls
 
 | Action | Xbox buttons | PlayStation names | Keyboard |
 |---|---|---|---|
-| Move the selection | D-pad or left stick | D-pad or left stick | Arrow keys |
+| Move the selection | D-pad | D-pad | Arrow keys |
 | Change a bar's value | D-pad left / right on the bar | D-pad left / right | Left / Right |
 | Select, switch on / off | **A** | **✕ Cross** | Enter or Space |
 | Back one screen / close | **B** | **○ Circle** | Esc |
@@ -109,6 +110,8 @@ AMD driver settings and the screen. Settings the driver doesn't support are hidd
 ## Controller tab
 
 Settings stored in the controller itself, so they work everywhere and stay after a restart.
+Changes to **Buttons** and the **Gyro** take effect when you close the panel (while it's open the
+buttons are busy driving the panel); everything else changes at once.
 
 - **Mode circles**: **Xbox**, **PlayStation** (DirectInput; for games and emulators that expect a
   DualShock-style pad), **Desktop** (mouse and keyboard: A = left click, B = right click, the stick
@@ -124,7 +127,8 @@ Settings stored in the controller itself, so they work everywhere and stay after
 - **Sticks**: dead zone and outer edge for each stick, swap sticks, and a live view of both
   sticks so you can see the effect.
 - **Triggers**: where each trigger starts and where it's fully pressed, **Quick trigger** (a light
-  press counts as full), "Same for both", and a live meter.
+  press counts as full), "Same for both", and a live meter. While this screen is open the
+  triggers act at once (and reach the game too).
 - **Buttons**: remap A, B, X, Y, LB, RB, LT, RT, the stick clicks, the D-pad and the back buttons
   M1 / M2 to another button (or to nothing), with optional **Turbo** (repeats while held); plus
   **Nintendo layout** (swaps A / B and X / Y) and **D-pad diagonal lock**. Changed buttons show

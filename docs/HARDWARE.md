@@ -81,7 +81,35 @@ installed. Other Claw models use different firmware and are not supported.
 - `Hardware/ClawPad` keeps what the chip has and what's wanted, writes only the differing runs
   (0x21), then SyncToROM 1.5 s after the last change (flash wear). The mode is applied only when
   the panel closes: the panel needs Xbox mode while open, PlayStation mode re-enumerates the
-  device, and Off would kill input.
+  device, and Off would kill input. Changes to the bytes the panel mapping covers (buttons,
+  gyro on / off; triggers outside the Triggers screen) also reach the chip when the panel
+  closes, and nothing is saved while it's on.
+
+## Panel mapping (controller hidden from games while the panel is open)
+
+- Games read the gamepad directly (XInput has no notion of focus), so the panel taking the
+  foreground doesn't stop them, nor Steam Big Picture. While the panel is open the chip's
+  working memory gets a temporary mapping (`ControllerService.PanelMapping`, `ClawPad.SetOverlay`):
+  the panel's buttons send keyboard keys (`Input/PanelKeys`), which `DesktopInputBlocker` takes
+  before any app sees them (raw-input readers included); X, the stick clicks, View, Menu, LT and
+  RT map to 255 (nothing; let through while the Triggers screen's live meters show); the gyro
+  is off. XInput then sees no buttons and no triggers; the controller stays connected. Never
+  saved (no SyncToROM while it's on); 4 messages, ~15 ms on and ~15 ms off. It comes off only
+  once every press is let go: B closes the panel while still held, and with the real mapping
+  back the game would see that B.
+- Tried on the device (2026-10-27): arrows 128-131, numpad 139-142 / 144 / 146-148 and F23 (156)
+  arrive as keys; **F22 (157) sends nothing**. Numpad keys arrive as digits or as Home / Page Up /
+  ..., depending on NumLock: tell them apart by scan code (not extended). View / Menu (key blocks
+  13 / 14, enabled = 0 by default) sent nothing when remapped. The Xbox button (Home) sends Win + G.
+- **The sticks can't be silenced in working memory**: byte 0 = 0, a 100 % dead zone, MapEn +
+  MapValue 255 and TargetEn + TargetValue 0 all left them reaching XInput. So the panel doesn't
+  use the sticks.
+- MSI's `SaveProfile` (after every mode change) writes and then saves the chip's whole working
+  memory, so a temporary mapping can end up saved: any reply we didn't ask for while it's on
+  means save the real settings again once it's off. A mode change also re-sends the mapping
+  (in case the chip dropped it).
+- `%LOCALAPPDATA%\ClawControl\controller-restore.bin` holds the real bytes under the mapping while
+  it's on ([offset, length, bytes] runs); a start that finds it puts them back and saves.
 
 ## Controller modes and MSI's Command Center pipe
 

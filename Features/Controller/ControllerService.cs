@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using ClawControl.Core;
 using ClawControl.Hardware;
+using ClawControl.Input;
 
 namespace ClawControl.Features.Controller;
 
@@ -16,6 +17,9 @@ public enum LightEffect { Steady, Breathe, Rainbow }
 /// Also deals with MSI's quirks: the chip mode is only switched when the panel closes (while it's
 /// open the controller must stay a gamepad to drive the panel), and stick dead zones are
 /// re-applied after MSI rewrites them from its own saved copy on every mode change.
+///
+/// While the panel is open the chip has the panel mapping on top (see <see cref="PanelMapping"/>),
+/// so changes to buttons, triggers and the gyro reach the chip when the panel closes.
 /// </summary>
 public sealed class ControllerService
 {
@@ -128,18 +132,97 @@ public sealed class ControllerService
         Changed?.Invoke();
     }
 
-    /// <summary>The panel opened: if the controller is off, turn it on so the panel can be used.</summary>
+    /// <summary>
+    /// The panel opened: if the controller is off, turn it on so the panel can be used, and keep
+    /// its presses from the game behind (the panel mapping).
+    /// </summary>
     public void PanelOpened()
     {
         _panelOpen = true;
+        _triggersLive = false;
         if (_settings.ControllerOff) _ = _pad.SetDisabledAsync(false);
+        if (_settings.HideControllerFromGames) _ = _pad.SetOverlay(PanelMappingOverlay);
     }
 
-    /// <summary>The panel closed (after MSI restored its mode): apply the chosen mode / off.</summary>
-    public void PanelClosed()
+    /// <summary>
+    /// The panel closed: once the controller is let go (<paramref name="letGo"/>; the press that
+    /// closed the panel would reach the game otherwise) the real mapping goes back, then the
+    /// chosen mode / off applies.
+    /// </summary>
+    public void PanelClosed(Task letGo)
     {
         _panelOpen = false;
-        _ = ApplyPendingMode();
+        _triggersLive = false;
+        _ = EndPanelMappingAfter(letGo);
+        _ = ApplyPendingMode(letGo);
+    }
+
+    async Task EndPanelMappingAfter(Task letGo)
+    {
+        await letGo;
+        if (!_panelOpen) await _pad.SetOverlay(null);  // unless it opened again meanwhile
+    }
+
+    /// <summary>Takes the panel mapping off and waits for the chip to have it (quitting).</summary>
+    public void EndPanelMapping(TimeSpan timeout) => _pad.SetOverlay(null).Wait(timeout);
+
+    /// <summary>
+    /// The Triggers screen's live meters are showing: let the triggers through while they are
+    /// (they reach the game too, but you're pressing them on purpose).
+    /// </summary>
+    public void SetTriggersLive(bool live)
+    {
+        if (_triggersLive == live) return;
+        _triggersLive = live;
+        if (_panelOpen && _settings.HideControllerFromGames)
+            _ = _pad.SetOverlay(live ? PanelMappingLiveTriggersOverlay : PanelMappingOverlay);
+    }
+
+    bool _triggersLive;
+
+    // ---- Panel mapping ----
+
+    static readonly Func<byte[], byte[]> PanelMappingOverlay = wanted => PanelMapping(wanted, triggers: true);
+    static readonly Func<byte[], byte[]> PanelMappingLiveTriggersOverlay = wanted => PanelMapping(wanted, triggers: false);
+
+    /// <summary>
+    /// What the chip gets while the panel is open (docs/HARDWARE.md "Panel mapping"). Games read
+    /// the gamepad directly, whatever window is in front, so the panel's buttons send keys instead
+    /// (Input/PanelKeys), which the input blocker takes before any app sees them; every other
+    /// button and both triggers send nothing, and the gyro is off. Only the chip's working memory
+    /// gets this, never its saved settings. The sticks can't be silenced this way and still reach
+    /// the game, so the panel doesn't use them. <paramref name="triggers"/> false: the triggers
+    /// stay as they are (Triggers screen).
+    /// </summary>
+    static byte[] PanelMapping(byte[] wanted, bool triggers)
+    {
+        var b = wanted.ToArray();
+        void Map(int block, bool trigger, int code)
+        {
+            b[block] = 1;
+            b[block + 1] = (byte)((b[block + 1] & ~0x01) | 0x04);  // no turbo; remapped
+            int map = block + (trigger ? 5 : 3);
+            b[map] = (byte)code;
+            b[map + 1] = b[map + 2] = b[map + 3] = b[map + 4] = 0;
+        }
+        // Key blocks in the chip's order: Up Down Left Right LB RB LS RS A B X Y Home View Menu
+        // Camera. Home (the Xbox button, which sends Win + G) and Camera stay as they are.
+        int[] codes =
+        {
+            PanelKeys.Up, PanelKeys.Down, PanelKeys.Left, PanelKeys.Right,
+            PanelKeys.PrevPage, PanelKeys.NextPage, PanelKeys.Nothing, PanelKeys.Nothing,
+            PanelKeys.Accept, PanelKeys.Back, PanelKeys.Nothing, PanelKeys.Menu,
+            -1, PanelKeys.Nothing, PanelKeys.Nothing, -1,
+        };
+        for (int i = 0; i < codes.Length; i++)
+            if (codes[i] >= 0) Map(Keys + i * 8, false, codes[i]);
+        if (triggers)
+        {
+            Map(Lt, true, PanelKeys.Nothing);
+            Map(Rt, true, PanelKeys.Nothing);
+        }
+        b[Sensor] = (byte)(b[Sensor] & ~0x01);  // gyro off
+        return b;
     }
 
     /// <summary>
@@ -154,8 +237,9 @@ public sealed class ControllerService
         Changed?.Invoke();
     }
 
-    async Task ApplyPendingMode()
+    async Task ApplyPendingMode(Task? letGo = null)
     {
+        if (letGo != null) await letGo;
         // Give MSI's own "panel closed" mode restore time to land first.
         await Task.Delay(700);
         if (_panelOpen) return;

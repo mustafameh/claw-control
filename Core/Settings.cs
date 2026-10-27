@@ -19,6 +19,11 @@ public sealed class Settings
     public bool ControllerOff { get; set; }
     /// <summary>Last controller mode seen outside the panel (chip value: 1 Xbox, 2 PlayStation, 4 Desktop).</summary>
     public int ControllerMode { get; set; } = 1;
+    /// <summary>
+    /// While the panel is open the controller's buttons reach only the panel (a temporary
+    /// mapping on the controller chip); false = the game behind sees them too, as in 0.1.0.
+    /// </summary>
+    public bool HideControllerFromGames { get; set; } = true;
     /// <summary>The Triggers screen edits LT and RT together.</summary>
     public bool TriggersTogether { get; set; } = true;
     /// <summary>Sharpening strength to go back to when the Sharpen circle turns it on again.</summary>

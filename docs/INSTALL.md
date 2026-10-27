@@ -57,7 +57,7 @@ in `C:\Program Files\ClawControl`.
 Each release lists SHA256 checksums in `SHA256SUMS.txt`. In PowerShell:
 
 ```powershell
-Get-FileHash .\ClawControl-Setup-0.1.0.exe -Algorithm SHA256
+Get-FileHash .\ClawControl-Setup-0.1.1.exe -Algorithm SHA256
 ```
 
 The hash must match the line for that file.
