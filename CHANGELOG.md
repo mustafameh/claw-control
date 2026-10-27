@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 (2026-10-27)
+
+- **Fixed:** with no app in front (the desktop, Start or Search) the app switcher showed an empty
+  glass tile; it now shows just the arc.
+
 ## 0.1.2 (2026-10-27)
 
 - **App switcher:** floats left of the panel (small until you move into it with D-pad left, then

@@ -269,6 +269,8 @@ sealed class AppSwitcher : Canvas
         _hubIcon.Source = _front != null ? IconOf(_front) : null;
         _hubName.Text = _front?.Name ?? "";
         _hubFrozen.Visibility = _front?.NotResponding == true ? Visibility.Visible : Visibility.Collapsed;
+        // Nothing in front (the desktop, Start, Search): no tile at all.
+        _hub.Visibility = _hubName.Visibility = _front != null ? Visibility.Visible : Visibility.Hidden;
     }
 
     void Add(RunningApp? app, FrameworkElement content)
@@ -647,7 +649,7 @@ sealed class AppSwitcher : Canvas
             var (x, y) = OnArc(angle);
             Circle(x, y, HalfBand);
         }
-        pieces.Add((new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize), 27, 1));
+        if (_front != null) pieces.Add((new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize), 27, 1));
         if (_frame.Visibility == Visibility.Visible && _frame.Opacity > 0.01)
             pieces.Add((new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight), 18, _frame.Opacity));
         foreach (var count in new[] { _countAbove, _countBelow })
