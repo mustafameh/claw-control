@@ -13,6 +13,8 @@ namespace ClawControl.Hardware;
 public sealed record RunningApp(int ProcessId, string Name, string? Path, long MemoryBytes, bool NotResponding)
 {
     public ImageSource? Icon { get; init; }
+    /// <summary>A sharp ~96 px icon (RunningApps.LargeIcon), worked out with the rest in the background.</summary>
+    public ImageSource? BigIcon { get; init; }
     /// <summary>Its top window (the one in front of its others): what switching to it brings up.</summary>
     public IntPtr Window { get; init; }
     /// <summary>All its windows (what ending it closes).</summary>
@@ -93,8 +95,10 @@ public static class RunningApps
     /// <summary>A sharp icon of about <paramref name="size"/> pixels (the shell's big icons), or the small one.</summary>
     public static ImageSource? LargeIcon(RunningApp app, int size)
     {
-        // A Store app's own tile icon (its shell id), else the program file's icon.
-        string?[] sources = [app.AppId != null ? AppsFolder + app.AppId : null, app.Path];
+        // A Store app's own tile icon (its shell id), else the program file's icon, else the one
+        // its window shows in the taskbar (games often set their logo only there).
+        bool fileHasIcon = app.Path != null && ExtractIconEx(app.Path, -1, null, null, 0) > 0;
+        string?[] sources = [app.AppId != null ? AppsFolder + app.AppId : null, fileHasIcon ? app.Path : null];
         foreach (var source in sources.OfType<string>())
         {
             string key = $"{source}|{size}";
@@ -122,7 +126,30 @@ public static class RunningApps
             lock (Icons) Icons[key] = icon;
             if (icon != null) return icon;
         }
-        return app.Icon;
+        return WindowIcon(app.Window) ?? app.Icon;
+    }
+
+    /// <summary>The icon a window shows in the taskbar (asked with a short timeout: a busy game
+    /// window may be slow to answer).</summary>
+    static ImageSource? WindowIcon(IntPtr window)
+    {
+        if (window == IntPtr.Zero) return null;
+        IntPtr icon = IntPtr.Zero;
+        foreach (int kind in new[] { 1, 2 })  // ICON_BIG, ICON_SMALL2
+            if (icon == IntPtr.Zero && SendMessageTimeout(window, WmGetIcon, kind, IntPtr.Zero, SmtoAbortIfHung, 150, out var answer) != IntPtr.Zero)
+                icon = answer;
+        if (icon == IntPtr.Zero) icon = GetClassLongPtr(window, GclpHIcon);
+        if (icon == IntPtr.Zero) return null;
+        try
+        {
+            var image = Imaging.CreateBitmapSourceFromHIcon(icon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            image.Freeze();
+            return image;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     const string AppsFolder = @"shell:AppsFolder\";
@@ -182,6 +209,10 @@ public static class RunningApps
         int stride = info.WidthBytes, height = Math.Abs(info.Height);
         var pixels = new byte[stride * height];
         Marshal.Copy(info.Bits, pixels, 0, pixels.Length);
+        // Old-style icons come back with no alpha at all (every pixel 0): they're opaque, not invisible.
+        bool anyAlpha = false;
+        for (int i = 3; i < pixels.Length && !anyAlpha; i += 4) anyAlpha = pixels[i] != 0;
+        if (!anyAlpha) for (int i = 3; i < pixels.Length; i += 4) pixels[i] = 255;
         var source = BitmapSource.Create(info.Width, height, 96, 96, PixelFormats.Pbgra32, null, pixels, stride);
         // Bottom-up bitmaps (positive height) come out upside down.
         BitmapSource result = info.Height > 0 ? new TransformedBitmap(source, new ScaleTransform(1, -1)) : source;
@@ -205,10 +236,11 @@ public static class RunningApps
             {
                 using (p) { try { return p.WorkingSet64; } catch { return 0; } }
             });
-            return new RunningApp(who.Pid, name.Trim(), path, memory, windows.Any(IsHungAppWindow))
+            var app = new RunningApp(who.Pid, name.Trim(), path, memory, windows.Any(IsHungAppWindow))
             {
                 Icon = Icon(path), Window = windows[0], Windows = windows, AppId = who.AppId, Hosted = who.Hosted,
             };
+            return app with { BigIcon = LargeIcon(app, 96) };
         }
         catch
         {
@@ -358,6 +390,10 @@ public static class RunningApps
     [DllImport("gdi32.dll")] static extern int GetObject(IntPtr bitmap, int size, ref BitmapInfo info);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr bitmap);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr window);
+    const int WmGetIcon = 0x7F, GclpHIcon = -14, SmtoAbortIfHung = 0x2;
+    [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr window, int message, int wParam, IntPtr lParam, int flags, int timeoutMs, out IntPtr result);
+    [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")] static extern IntPtr GetClassLongPtr(IntPtr window, int index);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern uint ExtractIconEx(string file, int index, IntPtr[]? large, IntPtr[]? small, uint count);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);

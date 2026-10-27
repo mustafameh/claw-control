@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 (2026-10-27)
+
+- **Fixed:** games that keep their logo only on their window (Fortnite and others) showed a blank
+  icon in the app switcher; it now uses the icon the window shows in the taskbar. Icons that came
+  out fully see-through show properly, and icons are worked out in the background.
+
 ## 0.1.4 (2026-10-27)
 
 - **Fixed:** with a game in front the panel took almost a second to appear (finding out which app

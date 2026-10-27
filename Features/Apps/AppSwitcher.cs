@@ -63,7 +63,6 @@ sealed class AppSwitcher : Canvas
     /// <summary>A red dot on the tile when the app in front is frozen.</summary>
     readonly FrameworkElement _hubFrozen = FrozenDot(inset: 10);
     readonly List<Item> _ring = new();
-    readonly Dictionary<string, ImageSource?> _icons = new();
 
     RunningApp? _front;
     List<RunningApp> _lastList = [];
@@ -316,12 +315,8 @@ sealed class AppSwitcher : Canvas
         _ring.Add(item);
     }
 
-    ImageSource? IconOf(RunningApp app)
-    {
-        if (!_icons.TryGetValue(app.Key, out var icon))
-            _icons[app.Key] = icon = RunningApps.LargeIcon(app, 96);
-        return icon;
-    }
+    /// <summary>Worked out with the app in the background (never on the panel's thread).</summary>
+    static ImageSource? IconOf(RunningApp app) => app.BigIcon ?? app.Icon;
 
     // ---- D-pad ----
 
