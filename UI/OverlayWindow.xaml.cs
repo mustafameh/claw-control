@@ -287,15 +287,15 @@ public partial class OverlayWindow : Window
     /// <summary>The panel opened over a full-screen game without taking its focus.</summary>
     bool _gameKeepsFocus;
 
-    /// <summary>Logs whether the full-screen game still has the focus a moment after opening (and
+    /// <summary>Detailed log: whether the full-screen game still has the focus a moment after opening (and
     /// if not, whose window took it), to find anything else that takes it.</summary>
     async void CheckGameKeptFocus(IntPtr game)
     {
         string name = _frontApp?.Name ?? "?";
         await Task.Delay(1500);
         var front = RunningApps.FrontWindow();
-        if (front == game) Log.Info($"Opened over full-screen {name}: it kept the focus");
-        else Log.Info($"Opened over full-screen {name}: the focus went to {RunningApps.Describe(front)?.Name ?? "another window"} ({front})");
+        if (front == game) Log.Detail($"Opened over full-screen {name}: it kept the focus");
+        else Log.Detail($"Opened over full-screen {name}: the focus went to {RunningApps.Describe(front)?.Name ?? "another window"} ({front})");
     }
 
     /// <summary>When the MSI button was pressed (Stopwatch ticks), for the opening timing.</summary>
@@ -339,7 +339,7 @@ public partial class OverlayWindow : Window
         // Never activated while it's over the game (not by a focus call either), until it closes.
         NativeWindow.SetNoActivate(new WindowInteropHelper(this).Handle, _gameKeepsFocus);
         if (_gameKeepsFocus) CheckGameKeptFocus(frontWindow);
-        else if (_frontApp != null) Log.Info($"Opened over {_frontApp.Name} (not full screen): the panel takes the focus");
+        else if (_frontApp != null) Log.Detail($"Opened over {_frontApp.Name} (not full screen): the panel takes the focus");
         ShowActivated = !_gameKeepsFocus;
         Show();
         ShowActivated = true;
