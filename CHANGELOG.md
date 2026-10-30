@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 (2026-10-30)
+
+- **Fixed:** Frame gen didn't switch on, and Upscaling was missing from the Graphics tab, until
+  AMD Software had been opened. AMD's driver takes those two only while AMD Software's settings
+  service runs; Claw Control now starts it when needed (AMD Software flashes open for a moment
+  and closes) and connects to the driver again.
+
 ## 0.1.6 (2026-10-30)
 
 - **Quick tab: arrange it.** Edit at the bottom of the tab: move tiles with A and up / down,

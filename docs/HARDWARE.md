@@ -153,6 +153,13 @@ installed. Other Claw models use different firmware and are not supported.
   FRTC / image sharpening are off.
 - **The FPS limit is Radeon Chill with min = max** (range 30-300), FRTC off: FRTC (Frame Rate
   Target Control) had no effect in a DirectX 12 game. FRTC is only the fallback without Chill.
+- **Frame generation and RSR changes need AMD Software's settings service** (`AMDRSServ.exe`,
+  in the Store app `AdvancedMicroDevicesInc-2.AMDRadeonSoftware`). It starts only once AMD
+  Software has been opened (its startup task only runs a launcher): until then setting AFMF
+  fails (ADLX_FAIL, 3) and RSR reads as unsupported for the whole ADLX session. Claw Control
+  starts AMD Software through Explorer (`shell:AppsFolder\...!AMDRadeonsoftwareUWP`), closes its
+  window (the service stays), and starts a new ADLX session: when such a change fails, or when
+  the Graphics tab opens with RSR unsupported. Confirmed on the device 2026-10-30.
 - Upscaling (RSR) returns ADLX_FAIL for every call until it has been switched on **once** in AMD
   Software (sets the driver's `Gmx_RSREnabled` from 0 to 3); after that ADLX reads and sets it.
   ADLX decides support when a session starts, so the app needs a restart to show it.

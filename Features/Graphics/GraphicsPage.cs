@@ -125,7 +125,7 @@ public sealed class GraphicsPage : UserControl, IPage
     public void OnShown()
     {
         Refresh();
-        _ = _gfx.RefreshAsync();
+        _ = _gfx.RefreshAsync(tabShown: true);
     }
 
     void Refresh()

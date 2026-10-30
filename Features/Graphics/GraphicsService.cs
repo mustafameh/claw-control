@@ -49,7 +49,7 @@ public sealed class GraphicsService : IDisposable
         Log.Info($"AMD settings ({how}): {note}");
     }
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(bool tabShown = false)
     {
         var display = _display.Run(() => (DisplayModes.Current(), DisplayModes.All(), DisplayScale.Read()));
         Amd = await _amd.ReadAsync();
@@ -57,6 +57,11 @@ public sealed class GraphicsService : IDisposable
         if (_memoryAtStart < 0) _memoryAtStart = Amd.MemoryChoice;
         (Mode, Modes, Scale) = await display;
         Changed?.Invoke();
+        // Upscaling reads as unsupported until AMD Software's settings service runs (Hardware/
+        // AmdGraphics): start it, which also lets frame generation changes through.
+        // Only when the tab is shown (never at startup).
+        if (tabShown && Amd.Available && !Amd.UpscalingSupported && !AmdGraphics.HasService && await _amd.StartServiceAsync())
+            Changed?.Invoke();
     }
 
     // ---- AMD ----

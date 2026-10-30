@@ -101,9 +101,101 @@ public sealed class AmdGraphics : IDisposable
     /// <summary>How much upscaling sharpens what it stretches, in percent.</summary>
     public void SetUpscalingSharpness(int percent) => _upscalingSharpness.Post(percent);
 
-    public void SetFrameGen(bool on) => Queue("frame generation", () => Adlx.SetBool(_afmf, Adlx.ToggleSetEnabled, on));
+    public void SetFrameGen(bool on) => QueueWithService("frame generation", () => Adlx.SetBool(_afmf, Adlx.ToggleSetEnabled, on));
 
-    public void SetUpscaling(bool on) => Queue("upscaling", () => Adlx.SetBool(_rsr, Adlx.RsrSetEnabled, on));
+    public void SetUpscaling(bool on) => QueueWithService("upscaling", () => Adlx.SetBool(_rsr, Adlx.RsrSetEnabled, on));
+
+    // ---- AMD Software's settings service ----
+
+    /// <summary>
+    /// The driver takes frame generation and upscaling (RSR) changes only while AMD Software's
+    /// settings service (AMDRSServ) runs, and that starts only once AMD Software has been
+    /// opened: until then those changes fail (ADLX_FAIL) and RSR reads as unsupported. Claw
+    /// Control starts it when it's needed (AMD Software opens for a moment and its window is
+    /// closed; the service stays), then connects to the driver again.
+    /// </summary>
+    const string AmdSoftware = "AdvancedMicroDevicesInc-2.AMDRadeonSoftware_0a9344xs7nr4m!AMDRadeonsoftwareUWP";
+    bool _serviceTried;
+
+    static bool ServiceRunning() => System.Diagnostics.Process.GetProcessesByName("AMDRSServ").Length > 0;
+
+    /// <summary>A change that needs the service: started (once per run) and tried again if the driver refuses.</summary>
+    void QueueWithService(string what, Action change) => _worker.Run(() =>
+    {
+        try { Apply(change); }
+        catch (Adlx.Exception ex) when (ex.Code == 3 && StartServiceOnWorker())
+        {
+            try { Apply(change); }
+            catch (Exception again) { Log.Error($"Setting {what}", again); }
+        }
+        catch (Exception ex) { Log.Error($"Setting {what}", ex); }
+        return 0;
+    });
+
+    /// <summary>Starts the service if it isn't running (the Graphics tab, when upscaling reads as
+    /// unsupported); true if the driver was connected again with it.</summary>
+    public Task<bool> StartServiceAsync() => _worker.Run(StartServiceOnWorker);
+
+    bool StartServiceOnWorker()
+    {
+        if (ServiceRunning() || _serviceTried) return false;
+        _serviceTried = true;
+        try
+        {
+            Log.Info("Starting AMD Software's settings service (frame generation and upscaling need it)");
+            // Through Explorer: AMD Software is a Store app, started for the user, not as admin.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{AmdSoftware}") { UseShellExecute = true });
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            bool closed = false;
+            while (clock.Elapsed < TimeSpan.FromSeconds(20) && !(closed && ServiceRunning()))
+            {
+                Thread.Sleep(150);
+                // Its window isn't wanted: closed as soon as it shows (the service keeps running).
+                foreach (var app in System.Diagnostics.Process.GetProcessesByName("RadeonSoftware"))
+                    using (app)
+                        if (app.MainWindowHandle != IntPtr.Zero && IsWindowVisible(app.MainWindowHandle))
+                        {
+                            PostMessage(app.MainWindowHandle, 0x0010, IntPtr.Zero, IntPtr.Zero);  // WM_CLOSE
+                            closed = true;
+                        }
+                if (!closed && ServiceRunning() && clock.Elapsed > TimeSpan.FromSeconds(8)) break;
+            }
+            if (!ServiceRunning())
+            {
+                Log.Info("AMD Software's settings service didn't start (is AMD Software installed?)");
+                return false;
+            }
+            Thread.Sleep(1000);  // let it settle before the driver is asked again
+            Reconnect();
+            Log.Info("AMD settings reconnected with AMD Software's service running");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Starting AMD Software's settings service", ex);
+            return false;
+        }
+    }
+
+    /// <summary>Connects to the driver again: it decides what's supported when a connection starts.</summary>
+    void Reconnect()
+    {
+        if (_started)
+        {
+            foreach (var p in _options) Adlx.Free(p);
+            foreach (var p in new[] { _optionList, _vgm, _system3, _freeSync, _display, _afmf, _settings1, _rsr, _ris, _chill, _frtc, _settings, _gpu })
+                Adlx.Free(p);
+            Adlx.Terminate();
+        }
+        _options.Clear();
+        _optionList = _vgm = _system3 = _freeSync = _display = _afmf = _settings1 = _rsr = _ris = _chill = _frtc = _settings = _gpu = 0;
+        _started = _failed = false;
+        Start();
+        Changed?.Invoke(Read());
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
     public void SetFreeSync(bool on) => Queue("FreeSync", () => Adlx.SetBool(_freeSync, Adlx.ToggleSetEnabled, on));
 
@@ -124,6 +216,9 @@ public sealed class AmdGraphics : IDisposable
         try { change(); }
         finally { Changed?.Invoke(Read()); }
     }
+
+    /// <summary>True if AMD's settings service runs (else frame generation / upscaling changes fail).</summary>
+    public static bool HasService => ServiceRunning();
 
     /// <summary>Sharpness is a percentage in the driver too (image sharpening: 10-100 in steps of 10).</summary>
     static int Scale(int percent, Adlx.IntRange range)
