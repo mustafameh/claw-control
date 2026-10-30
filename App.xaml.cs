@@ -184,6 +184,8 @@ public partial class App : Application
             $"Startup: {System.Runtime.JitInfo.GetCompiledMethodCount():N0} methods compiled at run time " +
             $"({System.Runtime.JitInfo.GetCompilationTime().TotalMilliseconds:N0} ms), " +
             $"{System.Diagnostics.Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds:N1} s CPU in the first 20 s"));
+        // After the reads above: the panel's code compiled ahead of its first use (Core/Warmup).
+        Warmup.Start(TimeSpan.FromSeconds(10));
         _perfOverlay.Apply();  // starts nothing unless the overlay was left on
         if (e.Args.Contains("--show")) _overlay.ShowPanel();
     }

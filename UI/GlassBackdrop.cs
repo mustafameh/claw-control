@@ -26,8 +26,20 @@ public sealed class GlassBackdrop
     readonly object? _target;           // keeps the composition target alive
     readonly ContainerVisual? _root;
     readonly CompositionBrush? _backdrop;
-    /// <summary>One blurred rounded piece each (the panel uses one; the app switcher several).</summary>
-    readonly List<(SpriteVisual Sprite, CompositionRoundedRectangleGeometry Shape)> _pieces = new();
+    /// <summary>Groups of pieces that move together (the card; the app switcher), each in its own
+    /// container so a group can grow or move with one transform instead of every piece changing.</summary>
+    readonly List<Group> _groups = new();
+    Int32Rect _area;
+    bool _shown;
+
+    sealed class Group(ContainerVisual container)
+    {
+        public readonly ContainerVisual Container = container;
+        public readonly List<(SpriteVisual Sprite, CompositionRoundedRectangleGeometry Shape)> Pieces = new();
+        /// <summary>What each piece shows now, so only what changed is sent to the compositor.</summary>
+        public readonly List<GlassShape> Shown = new();
+        public Matrix3x2 Transform = Matrix3x2.Identity;
+    }
 
     public IntPtr Handle => _window.Handle;
 
@@ -68,40 +80,89 @@ public sealed class GlassBackdrop
     /// still has the old size.</summary>
     public readonly record struct GlassShape(Rect Area, double Radius, double Opacity = 1);
 
-    /// <summary>Shows the glass over <paramref name="area"/> (screen pixels) as these pieces. Pieces
-    /// may overlap: each shows the same blurred backdrop, so they join seamlessly (a ring is a
-    /// row of overlapping circles).</summary>
-    public void Show(Int32Rect area, IReadOnlyList<GlassShape> shapes)
+    /// <summary>A group of pieces in its own units, placed in the glass area's pixels by a transform.</summary>
+    public readonly record struct Layer(IReadOnlyList<GlassShape> Shapes, Matrix3x2 Transform);
+
+    /// <summary>Shows the glass over <paramref name="area"/> (screen pixels) as these layers of
+    /// pieces. Pieces may overlap: each shows the same blurred backdrop, so they join seamlessly
+    /// (a ring is a row of overlapping circles). Only what changed since last time is sent.</summary>
+    public void Show(Int32Rect area, params Layer[] layers)
     {
-        if (_compositor != null && _root != null)
+        Update(layers);
+        // Moving or showing a window is a round trip through Windows: only when needed.
+        if (_shown && area == _area) return;
+        _area = area;
+        _shown = true;
+        SetWindowPos(_window.Handle, HWND_TOPMOST, area.X, area.Y, area.Width, area.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+
+    /// <summary>
+    /// Changes the pieces without showing the window. Used while hidden to leave the look the
+    /// panel opens with next time: a shown window draws what it had before the compositor has
+    /// the new pieces, so the last look would flash for a frame.
+    /// </summary>
+    public void Update(params Layer[] layers)
+    {
+        if (_compositor == null || _root == null) return;
+        while (_groups.Count < layers.Length)
         {
-            while (_pieces.Count < shapes.Count)
+            var container = _compositor.CreateContainerVisual();
+            _root.Children.InsertAtTop(container);
+            _groups.Add(new Group(container));
+        }
+        for (int g = 0; g < _groups.Count; g++)
+        {
+            var group = _groups[g];
+            var shapes = g < layers.Length ? layers[g].Shapes : [];
+            var transform = g < layers.Length ? layers[g].Transform : Matrix3x2.Identity;
+            if (transform != group.Transform)
+            {
+                group.Transform = transform;
+                group.Container.TransformMatrix = new Matrix4x4(transform);
+            }
+            while (group.Pieces.Count < shapes.Count)
             {
                 var sprite = _compositor.CreateSpriteVisual();
                 sprite.Brush = _backdrop;
                 var shape = _compositor.CreateRoundedRectangleGeometry();
                 sprite.Clip = _compositor.CreateGeometricClip(shape);
-                _root.Children.InsertAtTop(sprite);
-                _pieces.Add((sprite, shape));
+                group.Container.Children.InsertAtTop(sprite);
+                group.Pieces.Add((sprite, shape));
+                group.Shown.Add(default);
             }
-            for (int i = 0; i < _pieces.Count; i++)
+            for (int i = 0; i < group.Pieces.Count; i++)
             {
-                var (sprite, shape) = _pieces[i];
-                sprite.IsVisible = i < shapes.Count;
-                if (i >= shapes.Count) continue;
-                var piece = shapes[i];
-                var size = new Vector2((float)piece.Area.Width, (float)piece.Area.Height);
-                sprite.Offset = new Vector3((float)piece.Area.X, (float)piece.Area.Y, 0);
-                sprite.Opacity = (float)piece.Opacity;
-                sprite.Size = size;
-                shape.Size = size;
-                shape.CornerRadius = new Vector2((float)piece.Radius);
+                var (sprite, shape) = group.Pieces[i];
+                var piece = i < shapes.Count ? shapes[i] : default;
+                var was = group.Shown[i];  // what the sprite has
+                if (piece == was) continue;
+                bool visible = piece.Opacity > 0.005, wasVisible = was.Opacity > 0.005;
+                if (!visible)
+                {
+                    if (wasVisible) sprite.IsVisible = false;
+                    group.Shown[i] = was with { Opacity = 0 };
+                    continue;
+                }
+                group.Shown[i] = piece;
+                if (!wasVisible) sprite.IsVisible = true;
+                if (piece.Opacity != was.Opacity) sprite.Opacity = (float)piece.Opacity;
+                if (piece.Area != was.Area)
+                {
+                    var size = new Vector2((float)piece.Area.Width, (float)piece.Area.Height);
+                    sprite.Offset = new Vector3((float)piece.Area.X, (float)piece.Area.Y, 0);
+                    sprite.Size = size;
+                    shape.Size = size;
+                }
+                if (piece.Radius != was.Radius) shape.CornerRadius = new Vector2((float)piece.Radius);
             }
         }
-        SetWindowPos(_window.Handle, HWND_TOPMOST, area.X, area.Y, area.Width, area.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
 
-    public void Hide() => ShowWindow(_window.Handle, SW_HIDE);
+    public void Hide()
+    {
+        _shown = false;
+        ShowWindow(_window.Handle, SW_HIDE);
+    }
 
     static object? _queueController;
 

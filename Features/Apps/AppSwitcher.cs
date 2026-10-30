@@ -190,6 +190,8 @@ sealed class AppSwitcher : Canvas
         Put(_countAbove, ax - CountSize / 2, ay - CountSize / 2);
         var (bx, by) = OnArc(ArcEnd - 16);
         Put(_countBelow, bx - CountSize / 2, by - CountSize / 2);
+        // Mini from the start: the panel's first drawing (before it ever opened) is kept by Windows.
+        ApplyGrow();
     }
 
     // ---- Opening and closing (with the panel) ----
@@ -242,7 +244,8 @@ sealed class AppSwitcher : Canvas
         _front = front;
         if (same)
         {
-            Refresh();  // same app, fresh numbers (memory)
+            ShowFront();  // same app: its full name and icon (the first time it's seen), memory
+            Refresh();
             return;
         }
         if (!Active && front != null) _spot = Spot.Hub;
@@ -265,54 +268,79 @@ sealed class AppSwitcher : Canvas
     }
 
     /// <summary>The other apps (the one in front is on the tile) and Close background apps last,
-    /// keeping the selected app if it's still open.</summary>
+    /// keeping the selected app if it's still open. Apps already on the arc keep their view (a
+    /// fresh list mostly brings the same apps: nothing is rebuilt then).</summary>
     void Fill(List<RunningApp> apps, string? keep)
     {
-        foreach (var item in _ring) Children.Remove(item.View);
+        var previous = _ring.ToList();
         _ring.Clear();
         foreach (var app in apps.Where(a => a.Key != _front?.Key))
-            Add(app, new Image { Source = IconOf(app) });
+        {
+            if (previous.Find(i => i.App?.Key == app.Key && i.App.NotResponding == app.NotResponding) is { } old)
+            {
+                if (old.Content is Image image && image.Source != IconOf(app)) image.Source = IconOf(app);
+                _ring.Add(old with { App = app });
+            }
+            else _ring.Add(Create(app, new Image { Source = IconOf(app) }));
+        }
         if (_ring.Count > 0)
-            Add(null, new TextBlock
+            _ring.Add(_closeAll ??= Create(null, new TextBlock
             {
                 Text = "\uE711", FontFamily = Ui.Icons, FontSize = 18, Foreground = AppsPowerScreen.EndBrush,
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            });
+            }));
+        foreach (var old in previous)
+            if (!_ring.Exists(i => i.View == old.View)) Children.Remove(old.View);
+        foreach (var item in _ring)
+            if (!Children.Contains(item.View)) Children.Add(item.View);
+        _ringVersion++;
         int index = keep != null ? _ring.FindIndex(i => i.App?.Key == keep) : -1;
         _selected = Math.Max(0, index);
         _turn = _selected;
         _turnV = 0;
-        _hubIcon.Source = _front != null ? IconOf(_front) : null;
+        ShowFront();
+    }
+
+    /// <summary>The app in front on the tile; nothing in front (the desktop, Start, Search): no tile at all.</summary>
+    void ShowFront()
+    {
+        var icon = _front != null ? IconOf(_front) : null;
+        if (_hubIcon.Source != icon) _hubIcon.Source = icon;
         _hubName.Text = _front?.Name ?? "";
         _hubFrozen.Visibility = _front?.NotResponding == true ? Visibility.Visible : Visibility.Collapsed;
-        // Nothing in front (the desktop, Start, Search): no tile at all.
         _hub.Visibility = _hubName.Visibility = _front != null ? Visibility.Visible : Visibility.Hidden;
     }
 
-    void Add(RunningApp? app, FrameworkElement content)
+    /// <summary>Close background apps (kept: it's on the arc whenever there's an app to close).</summary>
+    Item? _closeAll;
+
+    /// <summary>Changes whenever the arc's stops change (PlaceItems redoes them then).</summary>
+    int _ringVersion;
+
+    Item Create(RunningApp? app, FrameworkElement content)
     {
         var view = new Border
         {
             CornerRadius = new CornerRadius(ItemSize / 2), Background = Ui.Brush("CardBrush"),
             Child = app?.NotResponding == true ? new Grid { Children = { content, FrozenDot() } } : content, Opacity = 0,
         };
-        var item = new Item(app, view, content);
         // Tap: switch to the app; on Close background apps, select it and press it (twice closes).
         view.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
-            if (app != null)
+            int index = _ring.FindIndex(i => i.View == view);
+            if (index < 0) return;
+            if (_ring[index].App is { } tapped)
             {
-                RunningApps.SwitchTo(app);
+                RunningApps.SwitchTo(tapped);
                 Done?.Invoke();
                 return;
             }
             _spot = Spot.Ring;
-            Select(_ring.IndexOf(item));
+            Select(index);
             Accept();
         };
-        Children.Add(view);
-        _ring.Add(item);
+        return new Item(app, view, content);
     }
 
     /// <summary>Worked out with the app in the background (never on the panel's thread).</summary>
@@ -479,6 +507,8 @@ sealed class AppSwitcher : Canvas
     /// <summary>An ended app's icon shrinks and fades out, then goes (it's already off the arc).</summary>
     void Vanish(FrameworkElement view)
     {
+        if (view == _closeAll?.View) _closeAll = null;  // a fresh one next time
+        _ringVersion++;
         var shrink = new ScaleTransform();
         view.RenderTransformOrigin = new Point(0.5, 0.5);
         view.RenderTransform = shrink;
@@ -533,6 +563,10 @@ sealed class AppSwitcher : Canvas
     /// <summary>Puts the arc's stops where the turn has them (a fraction while turning).</summary>
     void PlaceItems()
     {
+        // While it only grows or shrinks nothing on the arc moves (the whole switcher is scaled).
+        var placed = (_turn, _selected, Active && _spot == Spot.Ring, _ringVersion);
+        if (placed == _placed) return;
+        _placed = placed;
         for (int i = 0; i < _ring.Count; i++)
         {
             var (_, view, content) = _ring[i];
@@ -551,6 +585,8 @@ sealed class AppSwitcher : Canvas
             view.Visibility = opacity > 0.01 ? Visibility.Visible : Visibility.Hidden;
         }
     }
+
+    (double, int, bool, int) _placed = (double.NaN, 0, false, 0);
 
     /// <summary>Two stops fit above the selected one (the top one faded), three below; beyond, they fade out.</summary>
     static double Fade(double d)
@@ -649,25 +685,39 @@ sealed class AppSwitcher : Canvas
         if (turned && sized && faded) StopAnimating();
     }
 
-    /// <summary>The blurred pieces under the switcher (switcher units, corner radius): the arc as
-    /// a row of overlapping circles, the tile, the preview frame and the counts.</summary>
+    /// <summary>
+    /// The blurred pieces under the switcher (switcher units before its grow, corner radius): the
+    /// arc as a row of overlapping circles, the tile, the preview frame and the counts. Always in
+    /// the same order and number (a missing one has opacity 0), so the glass only changes what
+    /// changed; growing moves them all at once (the panel passes the switcher's transform).
+    /// </summary>
     public List<(Rect Area, double Radius, double Opacity)> GlassPieces()
     {
-        var pieces = new List<(Rect, double, double)>();
-        if (!_open) return pieces;
-        void Circle(double cx, double cy, double r) => pieces.Add((new Rect(cx - r, cy - r, 2 * r, 2 * r), r, 1));
+        var pieces = new List<(Rect, double, double)>(ArcPieces.Count + 4);
+        pieces.AddRange(ArcPieces);
+        pieces.Add((new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize), 27, _front != null ? 1 : 0));
+        pieces.Add((new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight), 18,
+            _frame.Visibility == Visibility.Visible && _frame.Opacity > 0.01 ? _frame.Opacity : 0));
+        foreach (var count in new[] { _countAbove, _countBelow })
+            pieces.Add((Circle(GetLeft(count) + CountSize / 2, GetTop(count) + CountSize / 2, CountSize / 2), CountSize / 2,
+                count.Visibility == Visibility.Visible ? 1 : 0));
+        return pieces;
+    }
+
+    static readonly List<(Rect Area, double Radius, double Opacity)> ArcPieces = ArcCircles();
+
+    static List<(Rect, double, double)> ArcCircles()
+    {
+        var circles = new List<(Rect, double, double)>();
         for (double angle = ArcEnd; angle <= ArcTop + 0.01; angle += 3)
         {
             var (x, y) = OnArc(angle);
-            Circle(x, y, HalfBand);
+            circles.Add((Circle(x, y, HalfBand), HalfBand, 1));
         }
-        if (_front != null) pieces.Add((new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize), 27, 1));
-        if (_frame.Visibility == Visibility.Visible && _frame.Opacity > 0.01)
-            pieces.Add((new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight), 18, _frame.Opacity));
-        foreach (var count in new[] { _countAbove, _countBelow })
-            if (count.Visibility == Visibility.Visible) Circle(GetLeft(count) + CountSize / 2, GetTop(count) + CountSize / 2, CountSize / 2);
-        return pieces;
+        return circles;
     }
+
+    static Rect Circle(double cx, double cy, double r) => new(cx - r, cy - r, 2 * r, 2 * r);
 
     static (double X, double Y) OnArc(double degrees)
     {

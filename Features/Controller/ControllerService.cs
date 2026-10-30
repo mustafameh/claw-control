@@ -121,8 +121,15 @@ public sealed class ControllerService
 
     void NoteChipMode()
     {
-        if (!_panelOpen && _pad.Mode is 1 or 2 or 4) _userMode = _pad.Mode.Value;
+        if (!_panelOpen && !_xboxForPanel && _pad.Mode is 1 or 2 or 4) _userMode = _pad.Mode.Value;
     }
+
+    /// <summary>
+    /// The chip was in Desktop (mouse) mode when the panel opened and was put in Xbox mode for it.
+    /// MSI's own "gamepad while the panel is open" request does nothing when the mouse mode was
+    /// chosen here (MSI still thinks it's a gamepad), and in Desktop mode LB / RB send nothing.
+    /// </summary>
+    bool _xboxForPanel;
 
     /// <summary>Remembers the choice; the chip switches when the panel closes (see PanelClosed).</summary>
     public void SetMode(PadMode mode)
@@ -142,6 +149,11 @@ public sealed class ControllerService
         _triggersLive = false;
         if (_settings.ControllerOff) _ = _pad.SetDisabledAsync(false);
         if (_settings.HideControllerFromGames) _ = _pad.SetOverlay(PanelMappingOverlay);
+        if (!_xboxForPanel && _pad.Mode == 4)
+        {
+            _xboxForPanel = true;
+            _ = _pad.SwitchModeAsync(1);
+        }
     }
 
     /// <summary>
@@ -245,6 +257,12 @@ public sealed class ControllerService
         if (_panelOpen) return;
         var mode = _pendingMode;
         _pendingMode = null;
+        // Put to Xbox mode for the panel: back to the mouse unless another mode was picked.
+        if (_xboxForPanel)
+        {
+            mode ??= _settings.ControllerOff ? PadMode.Off : PadMode.Desktop;
+            _xboxForPanel = false;
+        }
         if (mode == null)
         {
             if (_settings.ControllerOff) await _pad.SetDisabledAsync(true);

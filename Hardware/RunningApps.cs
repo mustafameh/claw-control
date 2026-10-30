@@ -46,7 +46,25 @@ public static class RunningApps
 
     /// <summary>The app in front (before the panel took focus); null for the desktop / taskbar.</summary>
     public static RunningApp? Describe(IntPtr window) =>
-        window != IntPtr.Zero && IsApp(window) && Identify(window) is { } who ? App(who, [window]) : null;
+        window != IntPtr.Zero && IsApp(window) && Identify(window) is { } who ? App(who, [window], new Snapshot()) : null;
+
+    /// <summary>
+    /// The app in front at once (a few window calls, no waiting on the app): whose window it is,
+    /// with the name and icons learned the last time it was seen. A game seen for the first time
+    /// gets its program's name and no icon; Describe fills in the rest from the background.
+    /// </summary>
+    public static RunningApp? Recall(IntPtr window)
+    {
+        if (window == IntPtr.Zero || !IsApp(window) || Identify(window) is not { } who) return null;
+        string? path = who.Hosted ? null : ImagePath(who.Pid);
+        Known? known;
+        lock (KnownApps) KnownApps.TryGetValue(KnownKey(who, path), out known);
+        string name = known?.Name ?? (path != null ? System.IO.Path.GetFileNameWithoutExtension(path) : GetWindowTitle(window));
+        return new RunningApp(who.Pid, name, path, 0, IsHungAppWindow(window))
+        {
+            Icon = known?.Icon, BigIcon = known?.BigIcon, Window = window, Windows = [window], AppId = who.AppId, Hosted = who.Hosted,
+        };
+    }
 
     /// <summary>Whose window it is. Store apps' windows belong to Windows' frame host
     /// (ApplicationFrameWindow): their own process owns the frame's inner CoreWindow, and the
@@ -81,8 +99,63 @@ public static class RunningApps
             return true;
         }, IntPtr.Zero);
         // EnumWindows goes front to back, and the dictionary keeps that order.
-        return byApp.Values.Select(a => App(a.Who, a.Windows)).OfType<RunningApp>().ToList();
+        var processes = new Snapshot();
+        return byApp.Values.Select(a => App(a.Who, a.Windows, processes)).OfType<RunningApp>().ToList();
     }
+
+    /// <summary>Every process's name and memory from one look at the process list (each
+    /// Process.ProcessName / GetProcessesByName call takes a whole new one).</summary>
+    sealed class Snapshot
+    {
+        readonly Dictionary<int, string> _names = new();
+        readonly Dictionary<string, long> _memory = new(StringComparer.OrdinalIgnoreCase);
+
+        public Snapshot()
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcesses())
+                using (process)
+                {
+                    try
+                    {
+                        _names[process.Id] = process.ProcessName;
+                        _memory[process.ProcessName] = _memory.GetValueOrDefault(process.ProcessName) + process.WorkingSet64;
+                    }
+                    catch { }  // gone meanwhile
+                }
+        }
+
+        public string? NameOf(int pid) => _names.GetValueOrDefault(pid);
+
+        /// <summary>Browsers and Electron apps run as many processes: all of them with this name.</summary>
+        public long MemoryOf(string processName) => _memory.GetValueOrDefault(processName);
+    }
+
+    /// <summary>What's worked out once per app and kept: its name and icons (asking a busy game
+    /// window for its icon, or the shell for a big program file's, can take most of a second).</summary>
+    sealed record Known(string Name, ImageSource? Icon, ImageSource? BigIcon);
+
+    static readonly Dictionary<string, Known> KnownApps = new();
+
+    static string KnownKey((int Pid, string? AppId, bool Hosted) who, string? path) => who.AppId ?? path ?? $"pid {who.Pid}";
+
+    /// <summary>The program file of a process (works for elevated ones too), or null.</summary>
+    static string? ImagePath(int pid)
+    {
+        IntPtr process = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+        if (process == IntPtr.Zero) return null;
+        try
+        {
+            var path = new StringBuilder(1024);
+            int size = path.Capacity;
+            return QueryFullProcessImageName(process, 0, path, ref size) ? path.ToString(0, size) : null;
+        }
+        finally { CloseHandle(process); }
+    }
+
+    const int ProcessQueryLimitedInformation = 0x1000;
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int pid);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder path, ref int size);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
 
     /// <summary>Brings the app's window to the front (restoring it if minimised).</summary>
     public static void SwitchTo(RunningApp app)
@@ -93,12 +166,12 @@ public static class RunningApps
     }
 
     /// <summary>A sharp icon of about <paramref name="size"/> pixels (the shell's big icons), or the small one.</summary>
-    public static ImageSource? LargeIcon(RunningApp app, int size)
+    static ImageSource? LargeIcon(string? appId, string? path, IntPtr window, string name, int size)
     {
         // A Store app's own tile icon (its shell id), else the program file's icon, else the one
         // its window shows in the taskbar (games often set their logo only there).
-        bool fileHasIcon = app.Path != null && ExtractIconEx(app.Path, -1, null, null, 0) > 0;
-        string?[] sources = [app.AppId != null ? AppsFolder + app.AppId : null, fileHasIcon ? app.Path : null];
+        bool fileHasIcon = path != null && ExtractIconEx(path, -1, null, null, 0) > 0;
+        string?[] sources = [appId != null ? AppsFolder + appId : null, fileHasIcon ? path : null];
         foreach (var source in sources.OfType<string>())
         {
             string key = $"{source}|{size}";
@@ -121,12 +194,12 @@ public static class RunningApps
             }
             catch (Exception ex)
             {
-                Log.Error($"Big icon for {app.Name}", ex);
+                Log.Error($"Big icon for {name}", ex);
             }
             lock (Icons) Icons[key] = icon;
             if (icon != null) return icon;
         }
-        return WindowIcon(app.Window) ?? app.Icon;
+        return WindowIcon(window);
     }
 
     /// <summary>The icon a window shows in the taskbar (asked with a short timeout: a busy game
@@ -220,32 +293,41 @@ public static class RunningApps
         return result;
     }
 
-    static RunningApp? App((int Pid, string? AppId, bool Hosted) who, List<IntPtr> windows)
+    static RunningApp? App((int Pid, string? AppId, bool Hosted) who, List<IntPtr> windows, Snapshot processes)
     {
         try
         {
-            using var process = System.Diagnostics.Process.GetProcessById(who.Pid);
-            string? path = null;
-            if (!who.Hosted) try { path = process.MainModule?.FileName; } catch { }
-            string name = (who.AppId != null ? ShellName(who.AppId) : null)
-                ?? (path != null ? FileVersionInfo.GetVersionInfo(path).FileDescription : null) ?? "";
-            if (string.IsNullOrWhiteSpace(name)) name = who.Hosted ? GetWindowTitle(windows[0]) : process.ProcessName;
-            // Browsers and Electron apps run as many processes: count them all. (A suspended Store
-            // app's own process isn't known: no number.)
-            long memory = who.Hosted ? 0 : System.Diagnostics.Process.GetProcessesByName(process.ProcessName).Sum(p =>
+            if (processes.NameOf(who.Pid) is not { } processName) return null;  // gone already
+            string? path = who.Hosted ? null : ImagePath(who.Pid);
+            var known = Learn(who, path, processName, windows[0]);
+            // A suspended Store app's own process isn't known: no number.
+            long memory = who.Hosted ? 0 : processes.MemoryOf(processName);
+            return new RunningApp(who.Pid, known.Name, path, memory, windows.Any(IsHungAppWindow))
             {
-                using (p) { try { return p.WorkingSet64; } catch { return 0; } }
-            });
-            var app = new RunningApp(who.Pid, name.Trim(), path, memory, windows.Any(IsHungAppWindow))
-            {
-                Icon = Icon(path), Window = windows[0], Windows = windows, AppId = who.AppId, Hosted = who.Hosted,
+                Icon = known.Icon, BigIcon = known.BigIcon, Window = windows[0], Windows = windows, AppId = who.AppId, Hosted = who.Hosted,
             };
-            return app with { BigIcon = LargeIcon(app, 96) };
         }
         catch
         {
             return null;  // gone already
         }
+    }
+
+    /// <summary>The app's name and icons: worked out the first time it's seen, then kept.</summary>
+    static Known Learn((int Pid, string? AppId, bool Hosted) who, string? path, string processName, IntPtr window)
+    {
+        string key = KnownKey(who, path);
+        lock (KnownApps)
+            if (KnownApps.TryGetValue(key, out var known)) return known;
+        string name = (who.AppId != null ? ShellName(who.AppId) : null)
+            ?? (path != null ? FileVersionInfo.GetVersionInfo(path).FileDescription : null) ?? "";
+        if (string.IsNullOrWhiteSpace(name)) name = who.Hosted ? GetWindowTitle(window) : processName;
+        name = name.Trim();
+        var icon = Icon(path);
+        var learned = new Known(name, icon, LargeIcon(who.AppId, path, window, name, 96) ?? icon);
+        // No icon yet (a busy game that didn't answer): asked again next time.
+        if (learned.BigIcon != null) lock (KnownApps) KnownApps[key] = learned;
+        return learned;
     }
 
     /// <summary>Asks the app to close its windows (it can save); force-closes it if it's frozen

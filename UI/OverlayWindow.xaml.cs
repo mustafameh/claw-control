@@ -245,7 +245,13 @@ public partial class OverlayWindow : Window
         // is can take most of a second for a game (Windows asks the busy window), so the last
         // answer for the same window shows at once and a fresh one follows from the background.
         var frontWindow = RunningApps.FrontWindow();
-        if (frontWindow != _frontWindow) _frontApp = null;
+        if (frontWindow != _frontWindow || _frontApp == null)
+        {
+            // Who it is right away (window calls only), so the app is on the tile from the first
+            // frame instead of on the arc first and then jumping over.
+            try { _frontApp = RunningApps.Recall(frontWindow); }
+            catch (Exception ex) { _frontApp = null; Log.Error("Finding the app in front", ex); }
+        }
         _frontWindow = frontWindow;
         _ = DescribeFront(frontWindow);
         double front = timing.Elapsed.TotalMilliseconds;
@@ -293,9 +299,13 @@ public partial class OverlayWindow : Window
         var screen = ScreenFit.Primary();
         _unitPx = screen.UnitPx;
         double scale = ScreenFit.Scale(this, screen);
-        var zoom = new ScaleTransform(scale, scale);
-        zoom.Freeze();
-        Root.LayoutTransform = zoom;
+        // A new transform (even the same) makes the whole panel lay itself out again.
+        if (Root.LayoutTransform is not ScaleTransform current || Math.Abs(current.ScaleX - scale) > 1e-9)
+        {
+            var zoom = new ScaleTransform(scale, scale);
+            zoom.Freeze();
+            Root.LayoutTransform = zoom;
+        }
         Card.BorderThickness = new Thickness(1 / _unitPx);  // the rim stays one device pixel
         // The window also holds the card's shadow: it reaches past the card (and past the
         // screen's edges, where the shadow is simply cut off) by the card's margin.
@@ -330,10 +340,28 @@ public partial class OverlayWindow : Window
         int width = (int)Math.Round(ActualWidth * scale.M11), height = (int)Math.Round(ActualHeight * scale.M22);
         if (width <= 0 || height <= 0) return;
         var area = new Int32Rect((int)Math.Round(Left * scale.M11), (int)Math.Round(Top * scale.M22), width, height);
-        var shapes = new List<GlassBackdrop.GlassShape> { new(ToGlassPixels(Card, new Rect(Card.RenderSize)), CornerRadiusDip * _unitPx) };
-        if (Switcher != null)
-            foreach (var (piece, radius, opacity) in Switcher.GlassPieces()) shapes.Add(new(ToGlassPixels(Switcher, piece), radius * _unitPx, opacity));
-        _glass.Show(area, shapes);
+        _glass.Show(area, GlassLayers());
+    }
+
+    /// <summary>The card's glass (in pixels) and the app switcher's pieces (in its own units,
+    /// moved and grown by one transform).</summary>
+    GlassBackdrop.Layer[] GlassLayers()
+    {
+        var card = new GlassBackdrop.Layer([new(ToGlassPixels(Card, new Rect(Card.RenderSize)), CornerRadiusDip * _unitPx)], System.Numerics.Matrix3x2.Identity);
+        if (Switcher == null) return [card];
+        var pieces = Switcher.GlassPieces().Select(p => new GlassBackdrop.GlassShape(p.Area, p.Radius, p.Opacity)).ToList();
+        return [card, new(pieces, ToGlassMatrix(Switcher))];
+    }
+
+    /// <summary>From an element's own coordinates to physical pixels from this window's top-left.</summary>
+    System.Numerics.Matrix3x2 ToGlassMatrix(Visual element)
+    {
+        var scale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice ?? Matrix.Identity;
+        var m = element.TransformToAncestor(this) is Transform transform ? transform.Value : Matrix.Identity;
+        return new System.Numerics.Matrix3x2(
+            (float)(m.M11 * scale.M11), (float)(m.M12 * scale.M22),
+            (float)(m.M21 * scale.M11), (float)(m.M22 * scale.M22),
+            (float)(m.OffsetX * scale.M11), (float)(m.OffsetY * scale.M22));
     }
 
     /// <summary>An element's area in physical pixels from this window's (and the glass window's) top-left.</summary>
@@ -387,6 +415,9 @@ public partial class OverlayWindow : Window
         _glass.Hide();
         _lens.Hide();
         Switcher?.Dismiss();
+        // The glass opens next time with what it has now: leave it the closed look (mini
+        // switcher), not the look it had when the panel closed.
+        _glass.Update(GlassLayers());
         HideAfterDrawing();
         if (_subPage != null)
         {
@@ -599,8 +630,15 @@ public partial class OverlayWindow : Window
         CurrentPage.OnShown();
     }
 
+    /// <summary>What the tab row was built for (a screen, or the page tabs with one selected).</summary>
+    (IPage? Sub, int Page) _tabsFor = (null, -1);
+
     void BuildTabs()
     {
+        // Opening the panel shows the same page again: the row it has is still right.
+        var tabsFor = (_subPage, _subPage == null ? _pageIndex : -1);
+        if (Tabs.Children.Count > 0 && tabsFor == _tabsFor) return;
+        _tabsFor = tabsFor;
         Tabs.Children.Clear();
         if (_subPage != null)
         {
@@ -694,7 +732,8 @@ public partial class OverlayWindow : Window
 
     static void Invoke(FrameworkElement? element)
     {
-        if (element == null) return;
+        // A disabled control (e.g. "next track" with nothing next) throws instead of doing nothing.
+        if (element is not { IsEnabled: true }) return;
         var peer = UIElementAutomationPeer.CreatePeerForElement(element);
         if (peer?.GetPattern(PatternInterface.Invoke) is IInvokeProvider invoke) invoke.Invoke();
         else if (peer?.GetPattern(PatternInterface.Toggle) is IToggleProvider toggle) toggle.Toggle();
