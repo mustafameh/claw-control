@@ -31,9 +31,17 @@ public partial class PerformancePage : UserControl, IPage
     /// <summary>A on the volume slider (or tapping its arrow) asks for the Sound screen.</summary>
     public event Action? OpenSoundRequested;
 
-    public PerformancePage(PerformanceService perf, Brightness brightness, AudioService audio, MediaService media)
+    readonly QuickTiles _tiles;
+
+    public PerformancePage(PerformanceService perf, Brightness brightness, AudioService audio, MediaService media, Core.Settings settings)
     {
         InitializeComponent();
+        // Each part of the tab is a tile that can be moved or hidden (Edit, QuickTiles).
+        _tiles = new QuickTiles(Root, settings);
+        var parts = new (string, FrameworkElement)[] { ("media", MediaStrip), ("connect", TopRow), ("volume", VolumeSlider), ("brightness", BrightnessSlider), ("power", PowerBlock) };
+        Root.Children.Clear();
+        foreach (var (id, part) in parts) _tiles.Add(id, part);
+        _tiles.EditingChanged += ShowMedia;
         _perf = perf;
         _brightness = brightness;
         _audio = audio;
@@ -78,9 +86,15 @@ public partial class PerformancePage : UserControl, IPage
 
     public void OnHidden()
     {
+        _tiles.Stop(select: false);
         _media.StopListening();
         _audio.Close();
     }
+
+    /// <summary>B while editing the tiles: drops the one picked up, else Done.</summary>
+    public bool HandleBack() => _tiles.Back();
+
+    public string? BackHint => _tiles.Editing ? "Done" : null;
 
     async Task RefreshVolume()
     {
@@ -108,8 +122,16 @@ public partial class PerformancePage : UserControl, IPage
     void ShowMedia()
     {
         var media = _media.Current;
-        MediaStrip.Visibility = media == null ? Visibility.Collapsed : Visibility.Visible;
-        if (media == null) return;
+        // While editing the tiles it shows even with nothing playing, so it can be moved too.
+        MediaStrip.Visibility = media == null && !_tiles.Editing ? Visibility.Collapsed : Visibility.Visible;
+        if (media == null)
+        {
+            MediaTitle.Text = "Now playing";
+            MediaArtist.Text = "";
+            MediaArt.Background = (Brush)FindResource("TrackBrush");
+            MediaArtFallback.Visibility = Visibility.Visible;
+            return;
+        }
         MediaTitle.Text = media.Title;
         MediaArtist.Text = string.Join(" · ", new[] { media.Artist, media.App }.Where(s => s.Length > 0));
         MediaArt.Background = media.Art != null
@@ -145,8 +167,11 @@ public partial class PerformancePage : UserControl, IPage
         if (!_brightnessRefreshing) _brightness.Set(percent);
     }
 
-    /// <summary>Related sections (like the performance overlay) go below the power limits.</summary>
-    public void AddSection(UIElement section) => Root.Children.Add(section);
+    /// <summary>A tile from elsewhere (capture, the performance overlay); ArrangeTiles once all are in.</summary>
+    public void AddTile(string id, FrameworkElement tile) => _tiles.Add(id, tile);
+
+    /// <summary>Puts the tiles in the order the user chose.</summary>
+    public void ArrangeTiles() => _tiles.Arrange();
 
     /// <summary>The row above volume and brightness (controller mode, Wi-Fi, Bluetooth).</summary>
     public void SetTopRow(UIElement row) => TopRow.Content = row;

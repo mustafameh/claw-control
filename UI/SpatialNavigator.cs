@@ -81,6 +81,7 @@ public static class SpatialNavigator
         for (int i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(node, i);
+            if (PanelInput.GetSkip(child)) continue;
             if (child is FrameworkElement { IsVisible: true, IsEnabled: true, Focusable: true } element
                 && element is ButtonBase or Slider)
             {

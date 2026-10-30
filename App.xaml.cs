@@ -3,6 +3,7 @@ using ClawControl.Core;
 using ClawControl.Features;
 using ClawControl.Features.Controller;
 using ClawControl.Features.Apps;
+using ClawControl.Features.Capture;
 using ClawControl.Features.Graphics;
 using ClawControl.Features.Network;
 using ClawControl.Features.Overlay;
@@ -40,6 +41,7 @@ public partial class App : Application
     MsiButtonWatcher? _buttons;
     MsiButtonTakeover? _takeover;
     OverlayController? _perfOverlay;
+    ScreenCapture? _capture;
     volatile string _tdpText = "";
     bool _stopped;
 
@@ -96,7 +98,7 @@ public partial class App : Application
         var media = new MediaService();
         _pad = new ClawPad();
         _controller = new ControllerService(_pad, _settings);
-        var performancePage = new PerformancePage(_performance, _brightness, _audio, media);
+        var performancePage = new PerformancePage(_performance, _brightness, _audio, media, _settings);
         var soundPage = new SoundPage(_audio);
         performancePage.OpenSoundRequested += () => _overlay?.OpenSubPage(soundPage);
         var net = new Connectivity();
@@ -105,8 +107,15 @@ public partial class App : Application
         var bluetoothScreen = new BluetoothScreen(net, closePanel);
         performancePage.SetTopRow(new QuickRow(_controller, net, wifiScreen, bluetoothScreen, page => _overlay?.OpenSubPage(page)));
         var appsMenu = new AppsPowerScreen();
-        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu);
-        performancePage.AddSection(new OverlaySection(_settings, _perfOverlay));
+        // Screenshots and recordings: the panel closes first, files are named after the app in front.
+        _capture = new ScreenCapture();
+        var capture = new CaptureService(_capture, _settings, () => _overlay?.HideAndWaitAsync() ?? Task.CompletedTask, () => _overlay?.FrontAppName);
+        _capture.Changed += () => Dispatcher.BeginInvoke(() => _overlay?.ExcludeFromCapture(_capture.RecordingSince != null));
+        var captureScreen = new CaptureScreen(capture);
+        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, captureScreen);
+        performancePage.AddTile("capture", new CaptureRow(capture, () => _overlay?.OpenSubPage(captureScreen)));
+        performancePage.AddTile("overlay", new OverlaySection(_settings, _perfOverlay));
+        performancePage.ArrangeTiles();
         _graphics = new GraphicsService(_settings);
         var pages = new IPage[]
         {
@@ -254,6 +263,7 @@ public partial class App : Application
         _controllerMode?.Leave();
         _controllerMode?.WaitForPending(TimeSpan.FromSeconds(3));
         _perfOverlay?.Shutdown(TimeSpan.FromSeconds(3));
+        _capture?.Shutdown(TimeSpan.FromSeconds(5));  // a recording running: finish its file
         _gamepad?.Dispose();
         _settings?.SaveNow();
         _hardware?.Dispose();

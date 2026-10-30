@@ -31,6 +31,14 @@ public sealed class Settings
     /// <summary>Sharpening strength to go back to when the Sharpen circle turns it on again.</summary>
     public int Sharpness { get; set; } = 50;
     public Dictionary<string, string> LastFocusByPage { get; set; } = new();
+    /// <summary>The Quick tab's tiles top to bottom (ids; ones missing here go in their usual place).</summary>
+    public List<string> QuickOrder { get; set; } = new();
+    /// <summary>Quick tab tiles hidden with Edit.</summary>
+    public List<string> QuickHidden { get; set; } = new();
+    /// <summary>Recordings (Capture screen): frames per second, high quality, the game's sound.</summary>
+    public int RecordFps { get; set; } = 60;
+    public bool RecordHigh { get; set; }
+    public bool RecordSound { get; set; } = true;
     /// <summary>Log every press, key and command too (for bug reports; see Log.Detail).</summary>
     public bool DetailedLog { get; set; }
 

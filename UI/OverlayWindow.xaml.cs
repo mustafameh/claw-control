@@ -70,8 +70,7 @@ public partial class OverlayWindow : Window
         Card.SizeChanged += (_, _) => ClipShadow();
         PreviewKeyDown += OnPreviewKeyDown;
         // The footer says what A does on the selected control (PanelInput.Hint), else "Select".
-        PreviewGotKeyboardFocus += (_, e) =>
-            AcceptHint.Text = (e.NewFocus is DependencyObject focus ? PanelInput.GetHint(focus) : null) ?? "Select";
+        PreviewGotKeyboardFocus += (_, _) => Dispatcher.BeginInvoke(ShowFooter);
         // The glass drop follows the selected control (focus passing through the window itself,
         // as during a page swap, leaves it where it is until the next control).
         _lens = new SelectionLens(LensLayer, PageScroller, Root);
@@ -215,10 +214,12 @@ public partial class OverlayWindow : Window
     void ShowFooter()
     {
         bool switcher = Switcher is { Active: true };
-        AcceptHint.Text = switcher ? Switcher!.AcceptHint
-            : (FocusManager.GetFocusedElement(this) is DependencyObject focus ? PanelInput.GetHint(focus) : null) ?? "Select";
-        ActionKey.Visibility = ActionHint.Visibility = switcher ? Visibility.Visible : Visibility.Collapsed;
-        BackHint.Text = switcher ? "Back" : "Close";
+        var focus = FocusManager.GetFocusedElement(this) as DependencyObject;
+        AcceptHint.Text = switcher ? Switcher!.AcceptHint : (focus != null ? PanelInput.GetHint(focus) : null) ?? "Select";
+        string? action = switcher ? "End" : focus != null && PanelInput.GetAction(focus) != null ? PanelInput.GetActionHint(focus) : null;
+        ActionHint.Text = action ?? "";
+        ActionKey.Visibility = ActionHint.Visibility = action != null ? Visibility.Visible : Visibility.Collapsed;
+        BackHint.Text = switcher ? "Back" : ShownPage.BackHint ?? (_subPage != null ? "Back" : "Close");
     }
 
     void AppChip_Click(object sender, RoutedEventArgs e) => OpenAppsMenu();
@@ -430,6 +431,29 @@ public partial class OverlayWindow : Window
         _settings.SaveSoon();
     }
 
+    /// <summary>Closes the panel and waits until it's off the screen (before a screenshot or a
+    /// recording starts, so it isn't in it).</summary>
+    public async Task HideAndWaitAsync()
+    {
+        HidePanel();
+        for (int i = 0; i < 40 && (IsVisible || _hiding); i++) await Task.Delay(15);
+        await Task.Delay(80);  // the compositor's next frame no longer has it
+    }
+
+    /// <summary>The app that was in front when the panel opened (captures are named after it).</summary>
+    public string? FrontAppName => _frontApp?.Name;
+
+    /// <summary>While Claw Control records, the panel and its glass stay out of the picture
+    /// (they can be opened to stop it). Other recorders still see them.</summary>
+    public void ExcludeFromCapture(bool exclude)
+    {
+        const uint None = 0, ExcludeFromCapture = 0x11;
+        foreach (var window in new[] { new WindowInteropHelper(this).Handle, _glass.Handle })
+            if (window != IntPtr.Zero) SetWindowDisplayAffinity(window, exclude ? ExcludeFromCapture : None);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr window, uint affinity);
+
     bool _hiding;
     EventHandler? _hideWhenDrawn;
 
@@ -579,9 +603,23 @@ public partial class OverlayWindow : Window
                 if (focused != null) _lens.Pulse(focused);
                 if (focused != null && PanelInput.GetAccept(focused) is Action accept) accept();
                 else Invoke(focused);
+                ShowFooter();  // what A / X do may have changed (a tile picked up)
+                break;
+            // X does something only where a control says so (never by accident on a page).
+            case NavCommand.Action:
+                if (focused != null && PanelInput.GetAction(focused) is Action action)
+                {
+                    _lens.Pulse(focused);
+                    action();
+                    ShowFooter();
+                }
                 break;
             case NavCommand.Back:
-                if (ShownPage.HandleBack()) break;
+                if (ShownPage.HandleBack())
+                {
+                    ShowFooter();
+                    break;
+                }
                 if (_subPage != null) CloseSubPage();
                 else HidePanel();
                 break;

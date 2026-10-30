@@ -34,7 +34,9 @@
         <ui:FillSlider x:Name="BrightnessSlider" Glyph="&#xE706;" TurnGlyph="True" Minimum="0" Maximum="100" SmallChange="5"
                        ValueChanged="Brightness_ValueChanged"/>
 
-        <!-- Power modes as one bar of icons; the line below names the one under the D-pad (or the active one). -->
+        <!-- Power modes as one bar of icons; the line below names the one under the D-pad (or the active one).
+             One tile with the Custom sliders and the error line (they move together when editing). -->
+        <StackPanel x:Name="PowerBlock">
         <UniformGrid Rows="1" Margin="4,12,4,0">
             <Button x:Name="SuperBatteryButton" Style="{StaticResource ModeButton}" Background="#FF34C759" Content="&#xE8BE;" Click="Mode_Click"/>
             <Button x:Name="BalancedButton" Style="{StaticResource ModeButton}" Background="#FF0A84FF" Content="&#xEC49;" Click="Mode_Click"/>
@@ -52,5 +54,6 @@
 
         <!-- Only shown when something went wrong; the blue icon already says which mode is on. -->
         <TextBlock x:Name="ApplyStatus" Style="{StaticResource CardDetail}" Margin="6,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>

@@ -147,6 +147,19 @@ public sealed class OverlaySection : StackPanel
         }
         _options.Children.Add(dots);
 
+        // How big the numbers are on the screen (80-200 %).
+        var size = Ui.Slider("", "Size", 200, 10);
+        size.Minimum = 80;
+        size.Value = Math.Clamp(settings.OverlaySize, 80, 200);
+        size.ValueText = $"{(int)size.Value}%";
+        size.Margin = new Thickness(0, 6, 0, 0);
+        size.ValueChanged += (_, e) =>
+        {
+            size.ValueText = $"{(int)Math.Round(e.NewValue)}%";
+            Change(() => _settings.OverlaySize = (int)Math.Round(e.NewValue));
+        };
+        _options.Children.Add(size);
+
         ShowPage(0);
         Refresh();
     }

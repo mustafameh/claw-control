@@ -27,6 +27,9 @@ public interface IPage
     /// <summary>B was pressed on this page; return true if it handled it (e.g. closed a picker).</summary>
     bool HandleBack() => false;
 
+    /// <summary>The footer's word for B when it isn't the usual Close / Back (e.g. "Done" while editing).</summary>
+    string? BackHint => null;
+
     /// <summary>Sub screens this page opens; debug captures render them too.</summary>
     IEnumerable<IPage> Screens => [];
 
