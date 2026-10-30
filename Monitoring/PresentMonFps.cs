@@ -108,7 +108,8 @@ public sealed class PresentMonFps : IDisposable
             }
             int Column(params string[] names) => names.Select(n => Array.FindIndex(header, h => h.Equals(n, StringComparison.OrdinalIgnoreCase))).FirstOrDefault(i => i >= 0, -1);
             int pidColumn = Column("ProcessID");
-            int frameColumn = Column("msBetweenPresents");
+            // The time between frames: msBetweenPresents (1.x metrics), FrameTime (2.x, frame types tracked).
+            int frameColumn = Column("msBetweenPresents", "MsBetweenPresents", "FrameTime");
             int typeColumn = Column("FrameType");
             if (pidColumn < 0 || frameColumn < 0)
             {

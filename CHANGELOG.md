@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9 (2026-10-30)
+
+- **Fixed:** the overlay's Frame gen number only showed a dash: PresentMon names its frame-time
+  column differently when it tracks generated frames, so Claw Control fell back to FPS only.
+
 ## 0.1.8 (2026-10-30)
 
 - **Updates in the app:** once a day, when the panel opens, Claw Control asks GitHub whether a
