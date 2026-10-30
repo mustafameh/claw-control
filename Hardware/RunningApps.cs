@@ -162,8 +162,16 @@ public static class RunningApps
     {
         if (app.Window == IntPtr.Zero || !IsWindow(app.Window)) return;
         if (IsIconic(app.Window)) ShowWindow(app.Window, SwRestore);
+        if (SetForegroundWindow(app.Window) && GetForegroundWindow() == app.Window) return;
+        // The panel isn't the foreground window over a full-screen game, and Windows only lets
+        // that one hand the foreground on: a marked Alt tap (our own input) lifts the lock.
+        var marker = (UIntPtr)Input.DesktopInputBlocker.OwnInputMarker;
+        keybd_event(0x12, 0, 0, marker);
+        keybd_event(0x12, 0, 2, marker);
         SetForegroundWindow(app.Window);
     }
+
+    [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
 
     /// <summary>A sharp icon of about <paramref name="size"/> pixels (the shell's big icons), or the small one.</summary>
     static ImageSource? LargeIcon(string? appId, string? path, IntPtr window, string name, int size)

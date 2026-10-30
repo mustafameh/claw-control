@@ -36,7 +36,7 @@ public static class Scaling
     }
 
     /// <summary>The window covers its whole screen (a full-screen game).</summary>
-    static bool FillsScreen(IntPtr window)
+    public static bool FillsScreen(IntPtr window)
     {
         if (window == IntPtr.Zero || !GetWindowRect(window, out var rect)) return false;
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };

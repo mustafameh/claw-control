@@ -284,6 +284,9 @@ public partial class OverlayWindow : Window
         if (!inMenu) OpenSubPage(AppsMenu);
     }
 
+    /// <summary>The panel opened over a full-screen game without taking its focus.</summary>
+    bool _gameKeepsFocus;
+
     /// <summary>When the MSI button was pressed (Stopwatch ticks), for the opening timing.</summary>
     public long PressedAt { get; set; }
 
@@ -318,7 +321,13 @@ public partial class OverlayWindow : Window
         // Mini again before the first frame (it may have been full size when the panel closed).
         Switcher?.Open(_frontApp);
         double switcher = timing.Elapsed.TotalMilliseconds;
+        // A full-screen game keeps the focus: many leave full screen when they lose it (back to
+        // the desktop's resolution, which also ends RSR). The panel doesn't need it: the
+        // controller reaches it through the input blocker either way.
+        _gameKeepsFocus = _frontApp != null && Monitoring.Scaling.FillsScreen(frontWindow);  // not the desktop
+        ShowActivated = !_gameKeepsFocus;
         Show();
+        ShowActivated = true;
         UpdateLayout();
         ShowGlass();
         double shown = timing.Elapsed.TotalMilliseconds;
@@ -332,9 +341,12 @@ public partial class OverlayWindow : Window
             Log.Detail($"Open timing: queued {queued:0} ms, front app {front:0}, page {page - front:0}, switcher {switcher - page:0}, show {shown - switcher:0}, first frame at {timing.Elapsed.TotalMilliseconds:0} ms");
         };
         CompositionTarget.Rendering += firstFrame;
-        if (!NativeWindow.BringToFront(new WindowInteropHelper(this).Handle))
-            Log.Info("Panel shown but Windows kept another app in the foreground");
-        Activate();
+        if (!_gameKeepsFocus)
+        {
+            if (!NativeWindow.BringToFront(new WindowInteropHelper(this).Handle))
+                Log.Info("Panel shown but Windows kept another app in the foreground");
+            Activate();
+        }
         RestoreFocus(opening: true);
         OfferUpdate();
         ShowFooter();

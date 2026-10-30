@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10 (2026-10-30)
+
+- **Fixed:** opening the panel over a full-screen game took its focus, so many games left full
+  screen (back to the desktop's resolution, which also ended RSR). Over a full-screen game the
+  panel now opens without taking the focus; the controller drives it as before.
+
 ## 0.1.9 (2026-10-30)
 
 - **Fixed:** the overlay's Frame gen number only showed a dash: PresentMon names its frame-time
