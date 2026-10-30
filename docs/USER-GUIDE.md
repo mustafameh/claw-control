@@ -85,9 +85,11 @@ Top to bottom:
 - **Screenshot** and **Record**: **A** on Screenshot closes the panel and saves what's on the
   screen (the screen flashes once). **A** on Record closes the panel and starts recording the
   screen with the game's sound; the tile turns red with the time, and **A** on it again stops.
-  Files go to **Videos › Captures**. Their **›** opens **Capture**: frame rate (30 / 60),
-  quality, game sound on / off, and the Captures folder. The panel never shows up in Claw
-  Control's own recordings.
+  Files go to **Videos › Captures** unless you pick another folder. Screenshot's **›**: **Size**
+  (full, or smaller) and **Save to**. Record's **›**: frame rate (30 / 60), quality, game sound
+  and **Save to**. **Save to** browses folders with the D-pad (**Save here**, **Up**, the
+  folders inside; your usual folders and drives, an SD card too, at the top). The panel never
+  shows up in Claw Control's own recordings.
 - **Overlay**: switches the [performance overlay](#performance-overlay) on or off. While it's on,
   pick where it sits on a mini screen and which numbers it shows.
 
@@ -191,7 +193,10 @@ Two numbers say what's really at work, not just what's switched on (green while 
 
 **Edit** at the bottom of the Quick tab: every tile gets the selection around it. **A** picks a
 tile up, **up / down** move it, **A** drops it; **X** hides or shows it (hidden tiles stay dimmed
-while editing and are gone afterwards); **B** or **Done** finishes.
+while editing and are gone afterwards); **B** or **Done** finishes. While editing, the top also
+has **Panel size** (80-130 %: everything in the panel, text included, grows or shrinks
+together) and **Side** (left or right edge of the screen; on the left the app switcher sits to
+the right of the panel and **D-pad right** opens it).
 
 ## Good to know
 

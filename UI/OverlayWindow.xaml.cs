@@ -922,7 +922,8 @@ public partial class OverlayWindow : Window
                 ShowPage(i);
                 ShowLensOn(CurrentPage.DefaultFocus, CurrentPage);
                 SaveImage(Path.Combine(dir, $"{++count:00} {CurrentPage.Title}.png"), background);
-                foreach (var screen in CurrentPage.Screens)
+                // Its screens, and the screens they open (one level more).
+                foreach (var screen in CurrentPage.Screens.SelectMany(s => s.Screens.Prepend(s)))
                 {
                     _subPage = screen;
                     PageHost.Content = screen.View;
@@ -933,6 +934,8 @@ public partial class OverlayWindow : Window
                     screen.OnHidden();
                     _subPage = null;
                 }
+                PageHost.Content = CurrentPage.View;
+                BuildTabs();
                 // The Quick tab while it's being edited.
                 if (CurrentPage is Features.Performance.PerformancePage quick)
                 {
