@@ -38,15 +38,22 @@ almost nothing while it's closed.
 | <img src="docs/media/screens/sound.jpg" width="250"><br>**Sound**<br>Output device and per-app volume | <img src="docs/media/screens/wifi.jpg" width="250"><br>**Wi-Fi and Bluetooth**<br>Switch them, connect networks and headphones | <img src="docs/media/screens/graphics.jpg" width="250"><br>**Graphics tab**<br>FPS limit, frame gen, upscaling, sharpening, FreeSync |
 | <img src="docs/media/screens/resolution.jpg" width="250"><br>**Display**<br>Resolution, refresh rate, Windows scaling, graphics memory | <img src="docs/media/screens/controller.jpg" width="250"><br>**Controller tab**<br>Xbox, PlayStation, mouse or off; lights, rumble, gyro | <img src="docs/media/screens/lights.jpg" width="250"><br>**Lights**<br>Colours, effects, speed, brightness |
 | <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**App switcher**<br>Live previews, switch or end apps, close background apps |
+| <img src="docs/media/screens/edit.jpg" width="250"><br>**Arrange the Quick tab**<br>Move and hide tiles; panel size and side | <img src="docs/media/screens/capture.jpg" width="250"><br>**Screenshot and record**<br>With game sound, on the GPU's video encoder; size, quality, folder | <img src="docs/media/screens/side.jpg" width="250"><br>**Left or right**<br>The panel and app switcher on either side, 80-130 % |
 
 - **Instant:** the panel is built once at startup and only shown and hidden.
 - **Controller-first:** D-pad to move, **A** select, **B** back, **LB / RB** tabs,
-  **Y** Power, **X** ends an app in the app switcher (D-pad left from the panel). Touch works everywhere too.
+  **Y** Power, **X** ends an app in the app switcher (D-pad left from the panel) and hides a
+  tile while editing the Quick tab. Touch works everywhere too.
 - **Keeps presses from the game:** while the panel is open the buttons and triggers drive only
   the panel, not the game or Steam behind it, in Xbox and in MSI's Desktop (mouse) mode (the
   sticks still reach the game).
-- **Same size everywhere:** the panel keeps its size and stays pinned to the right at any
-  resolution or Windows scaling.
+- **Same size everywhere:** the panel keeps its size and stays pinned to its side at any
+  resolution or Windows scaling. **Edit** (bottom of the Quick tab) moves and hides tiles, makes
+  the whole panel bigger or smaller and puts it on the left or right.
+- **Screenshots and recordings** of the whole screen, full-screen games included, with the
+  game's sound, encoded by the Claw's own video encoder. Pick the size, quality and folder.
+- **An honest overlay:** besides FPS, watts and temperatures it shows whether frame generation
+  really adds frames and whether RSR really upscales right now, not just whether they're on.
 - **Light on battery:** with the panel closed it uses about 0.3 % of one CPU core and polls
   nothing. No internet connection, no telemetry.
 

@@ -25,7 +25,15 @@ public sealed class GlassBackdrop
     readonly Compositor? _compositor;
     readonly object? _target;           // keeps the composition target alive
     readonly ContainerVisual? _root;
-    readonly CompositionBrush? _backdrop;
+    CompositionBrush? _backdrop;
+    /// <summary>
+    /// Windows switches the blur off while Energy saver is on or transparency effects are off,
+    /// and a window's backdrop stays the solid stand-in after it comes back on. Each change
+    /// counts here; the next opening then asks for the blur again with a fresh brush.
+    /// </summary>
+    static int _effectsChanges;
+    int _effectsSeen;
+    static readonly global::Windows.UI.ViewManagement.UISettings Effects = new();
     /// <summary>Groups of pieces that move together (the card; the app switcher), each in its own
     /// container so a group can grow or move with one transform instead of every piece changing.</summary>
     readonly List<Group> _groups = new();
@@ -67,6 +75,8 @@ public sealed class GlassBackdrop
             _root = _compositor.CreateContainerVisual();
             _backdrop = _compositor.CreateHostBackdropBrush();
             target.Root = _root;
+            Effects.AdvancedEffectsEnabledChanged += (_, _) => Interlocked.Increment(ref _effectsChanges);
+            global::Windows.System.Power.PowerManager.EnergySaverStatusChanged += (_, _) => Interlocked.Increment(ref _effectsChanges);
         }
         catch (Exception ex)
         {
@@ -88,6 +98,7 @@ public sealed class GlassBackdrop
     /// (a ring is a row of overlapping circles). Only what changed since last time is sent.</summary>
     public void Show(Int32Rect area, params Layer[] layers)
     {
+        if (!_shown) RenewIfEffectsChanged();
         Update(layers);
         // Moving or showing a window is a round trip through Windows: only when needed.
         if (_shown && area == _area) return;
@@ -162,6 +173,30 @@ public sealed class GlassBackdrop
     {
         _shown = false;
         ShowWindow(_window.Handle, SW_HIDE);
+    }
+
+    /// <summary>Transparency or Energy saver changed since the last opening: asks Windows for the
+    /// blur again and gives every piece a fresh backdrop brush.</summary>
+    void RenewIfEffectsChanged()
+    {
+        int changes = Volatile.Read(ref _effectsChanges);
+        if (changes == _effectsSeen || _compositor == null) return;
+        _effectsSeen = changes;
+        try
+        {
+            int on = 1;
+            DwmSetWindowAttribute(_window.Handle, DWMWA_USE_HOSTBACKDROPBRUSH, ref on, sizeof(int));
+            var fresh = _compositor.CreateHostBackdropBrush();
+            foreach (var group in _groups)
+                foreach (var (sprite, _) in group.Pieces) sprite.Brush = fresh;
+            _backdrop?.Dispose();
+            _backdrop = fresh;
+            Log.Info("Transparency or Energy saver changed: glass renewed");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Renewing the glass", ex);
+        }
     }
 
     static object? _queueController;

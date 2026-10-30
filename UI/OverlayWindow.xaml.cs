@@ -315,11 +315,17 @@ public partial class OverlayWindow : Window
         // The window also holds the card's shadow: it reaches past the card (and past the
         // screen's edges, where the shadow is simply cut off) by the card's margin.
         // Left of that, the app switcher, its tile level with the card's first row.
-        var room = Card.Margin;
         double gap = ScreenGap * screen.UnitPx, width = Math.Round(PanelWidth * _unitPx);
+        // WPF caps a window at about the screen's height (SM_CYMAXTRACK). The window is the card
+        // plus its shadow room; when the card can reach the taskbar that would cut the card short,
+        // so the room below it shrinks instead (the shadow there is past the screen's edge anyway).
+        double cardMax = screen.Work.Height - 2 * gap;
+        double over = cardMax + (CardRoom.Top + CardRoom.Bottom) * _unitPx - (GetSystemMetrics(SM_CYMAXTRACK) - 4);
+        SetBottomRoom(Math.Max(0, CardRoom.Bottom - Math.Max(0, over) / _unitPx));
+        var room = Card.Margin;
         double switcher = Switcher != null ? Math.Round((AppSwitcher.SwitcherWidth - SwitcherOverlap) * _unitPx) : 0;
         Width = ScreenFit.ToWindowUnits(this, width + Math.Round((room.Left + room.Right) * _unitPx) + switcher);
-        MaxHeight = ScreenFit.ToWindowUnits(this, screen.Work.Height - 2 * gap + (room.Top + room.Bottom) * _unitPx);
+        MaxHeight = ScreenFit.ToWindowUnits(this, cardMax + (room.Top + room.Bottom) * _unitPx);
         Top = ScreenFit.ToWindowUnits(this, screen.Work.Y + gap - room.Top * _unitPx);
         Left = ScreenFit.ToWindowUnits(this, left
             ? screen.Work.X + gap - Math.Round(room.Left * _unitPx)
@@ -338,6 +344,23 @@ public partial class OverlayWindow : Window
             Switcher.SetAnchor(left ? SwitcherOverlap - room.Right : AppSwitcher.SwitcherWidth - SwitcherOverlap + room.Left);
         }
     }
+
+    /// <summary>The card's margin in the XAML: the room around it for its shadow.</summary>
+    static readonly Thickness CardRoom = new(44, 32, 44, 66);
+
+    /// <summary>The room below the card (and its shadow layers along with it), in design units.</summary>
+    void SetBottomRoom(double bottom)
+    {
+        double cut = CardRoom.Bottom - bottom;
+        if (Math.Abs(Card.Margin.Bottom - bottom) < 0.01) return;
+        Card.Margin = CardRoom with { Bottom = bottom };
+        // The shadow layers keep their places relative to the card (XAML: 52 and 66 below).
+        if (ShadowLayer.Children[0] is FrameworkElement soft) soft.Margin = soft.Margin with { Bottom = Math.Max(0, 52 - cut) };
+        if (ShadowLayer.Children[1] is FrameworkElement halo) halo.Margin = halo.Margin with { Bottom = bottom };
+    }
+
+    const int SM_CYMAXTRACK = 60;
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
 
     /// <summary>The panel's size range in percent (Edit on the Quick tab).</summary>
     public const int MinPanelSize = 80, MaxPanelSize = 130;

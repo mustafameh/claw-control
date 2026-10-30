@@ -1,14 +1,18 @@
 # Changelog
 
-## 0.1.6 (not released yet)
+## 0.1.6 (2026-10-30)
 
 - **Quick tab: arrange it.** Edit at the bottom of the tab: move tiles with A and up / down,
-  hide them with X.
-- **Screenshot and Record tiles**: saved to Videos › Captures, recordings with the game's sound
-  (frame rate and quality on the Capture screen). Works without Windows' Game Bar capture.
+  hide them with X. While editing: **Panel size** (80-130 %, everything scales together) and
+  **Side** (left or right; the app switcher moves to the other side of the panel).
+- **Screenshot and Record tiles**: saved to Videos › Captures or a folder you pick (a D-pad
+  folder browser), recordings with the game's sound on the GPU's video encoder. Screenshot's ›:
+  size; Record's ›: frame rate, quality, sound. Works without Windows' Game Bar capture.
 - **Overlay**: Size bar; **Frame gen** and **Upscaling** numbers that show what's really at work
   (AFMF's added frames, RSR or plain scaling), not just what's switched on.
 - **Fixed:** in mouse mode chosen in Claw Control, LB / RB did nothing in the panel.
+- **Fixed:** the glass stayed solid grey after Windows' Energy saver had been on.
+- **Fixed:** long pages (and the panel above 100 %) stopped well short of the taskbar.
 - **Fixed:** the app switcher flashed full size when the panel opened, stuttered in its first
   second (it was rebuilt up to three times) and showed the game on the arc before moving it to
   the tile. Listing apps is much lighter, the glass is updated far less, and the panel's code
