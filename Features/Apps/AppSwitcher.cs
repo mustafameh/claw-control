@@ -196,8 +196,37 @@ sealed class AppSwitcher : Canvas
 
     // ---- Opening and closing (with the panel) ----
 
-    /// <summary>The card's left edge (switcher units): the mini switcher shrinks toward it.</summary>
+    /// <summary>The card's edge next to the switcher (switcher units): the mini switcher shrinks toward it.</summary>
     public void SetAnchor(double cardEdge) => _zoom.CenterX = cardEdge;
+
+    /// <summary>
+    /// The panel on the left side of the screen: the switcher sits right of the card, mirrored
+    /// (the arc round the tile's right side, the preview further right). Only places are
+    /// mirrored; icons and text read as usual.
+    /// </summary>
+    public bool Mirrored
+    {
+        get => _mirrored;
+        set
+        {
+            if (_mirrored == value) return;
+            _mirrored = value;
+            foreach (var (element, x) in _fixed) SetLeft(element, X(x, element.Width));
+            _band.RenderTransform = value ? new ScaleTransform(-1, 1, SwitcherWidth / 2, 0) : null;
+            _placed = (double.NaN, 0, false, 0);
+            PlaceItems();
+        }
+    }
+
+    bool _mirrored;
+
+    /// <summary>Where something <paramref name="width"/> wide placed at <paramref name="x"/> goes, mirrored or not.</summary>
+    double X(double x, double width) => _mirrored ? SwitcherWidth - x - width : x;
+
+    Rect Mirror(Rect area) => _mirrored ? new Rect(SwitcherWidth - area.Right, area.Y, area.Width, area.Height) : area;
+
+    /// <summary>Elements that stay put (their unmirrored left edge), placed again when mirrored.</summary>
+    readonly List<(FrameworkElement Element, double X)> _fixed = new();
 
     /// <summary>Rims stay one device pixel (set whenever the panel is placed).</summary>
     public void SetUnit(double unitPx)
@@ -251,6 +280,21 @@ sealed class AppSwitcher : Canvas
         if (!Active && front != null) _spot = Spot.Hub;
         Fill(_lastList, keep: Selected?.App?.Key);
         Refresh();
+    }
+
+    /// <summary>Debug captures (panel closed): the switcher full size with these apps, the first
+    /// one on the arc selected, its icon in the preview frame (the live picture is Windows').</summary>
+    public void ShowForCapture(RunningApp? front, List<RunningApp> apps)
+    {
+        _open = true;
+        _front = front;
+        Fill(apps, keep: null);
+        Active = true;
+        _spot = _ring.Count > 0 ? Spot.Ring : Spot.Hub;
+        _grow = 1;
+        ApplyGrow();
+        Refresh();
+        _frameFill.Visibility = _shown != null ? Visibility.Visible : Visibility.Hidden;
     }
 
     /// <summary>The panel closed.</summary>
@@ -365,6 +409,8 @@ sealed class AppSwitcher : Canvas
     public bool Handle(NavCommand command)
     {
         if (!Active) return false;
+        // Mirrored (panel on the left): away from the card is right.
+        if (_mirrored) command = command switch { NavCommand.Left => NavCommand.Right, NavCommand.Right => NavCommand.Left, _ => command };
         if (command is not NavCommand.Accept and not NavCommand.Action) Disarm();
         switch (command)
         {
@@ -577,7 +623,7 @@ sealed class AppSwitcher : Canvas
             view.Width = view.Height = size;
             view.CornerRadius = new CornerRadius(size / 2);
             if (content is Image) content.Width = content.Height = size * 0.62;
-            SetLeft(view, x - size / 2);
+            SetLeft(view, X(x - size / 2, size));
             SetTop(view, y - size / 2);
             SetZIndex(view, selected ? 2 : 1);
             double opacity = Fade(d);
@@ -617,8 +663,8 @@ sealed class AppSwitcher : Canvas
         _frameFill.Visibility = want && !pictured ? Visibility.Visible : Visibility.Hidden;
     }
 
-    static Rect PreviewBox => new(PreviewX + PreviewInset, CY - PreviewHeight / 2 + PreviewInset,
-        PreviewWidth - 2 * PreviewInset, PreviewHeight - 2 * PreviewInset);
+    Rect PreviewBox => Mirror(new(PreviewX + PreviewInset, CY - PreviewHeight / 2 + PreviewInset,
+        PreviewWidth - 2 * PreviewInset, PreviewHeight - 2 * PreviewInset));
 
     /// <summary>The live picture's opacity while it fades in (0-1).</summary>
     double _pictureFade = 1;
@@ -694,9 +740,9 @@ sealed class AppSwitcher : Canvas
     public List<(Rect Area, double Radius, double Opacity)> GlassPieces()
     {
         var pieces = new List<(Rect, double, double)>(ArcPieces.Count + 4);
-        pieces.AddRange(ArcPieces);
-        pieces.Add((new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize), 27, _front != null ? 1 : 0));
-        pieces.Add((new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight), 18,
+        pieces.AddRange(ArcPieces.Select(p => (Mirror(p.Area), p.Radius, p.Opacity)));
+        pieces.Add((Mirror(new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize)), 27, _front != null ? 1 : 0));
+        pieces.Add((Mirror(new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight)), 18,
             _frame.Visibility == Visibility.Visible && _frame.Opacity > 0.01 ? _frame.Opacity : 0));
         foreach (var count in new[] { _countAbove, _countBelow })
             pieces.Add((Circle(GetLeft(count) + CountSize / 2, GetTop(count) + CountSize / 2, CountSize / 2), CountSize / 2,
@@ -748,9 +794,10 @@ sealed class AppSwitcher : Canvas
 
     // ---- Building blocks ----
 
-    void Put(UIElement element, double x, double y)
+    void Put(FrameworkElement element, double x, double y)
     {
-        SetLeft(element, x);
+        _fixed.Add((element, x));
+        SetLeft(element, X(x, element.Width));
         SetTop(element, y);
         if (!Children.Contains(element)) Children.Add(element);
     }

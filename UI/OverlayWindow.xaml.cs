@@ -298,8 +298,12 @@ public partial class OverlayWindow : Window
     void PlaceInCorner()
     {
         var screen = ScreenFit.Primary();
-        _unitPx = screen.UnitPx;
-        double scale = ScreenFit.Scale(this, screen);
+        // The panel's own size (Edit on the Quick tab) scales everything in it alike; the gap to
+        // the screen's edges stays.
+        double size = Math.Clamp(_settings.PanelSize, MinPanelSize, MaxPanelSize) / 100.0;
+        bool left = _settings.PanelSide == "Left";
+        _unitPx = screen.UnitPx * size;
+        double scale = ScreenFit.Scale(this, screen) * size;
         // A new transform (even the same) makes the whole panel lay itself out again.
         if (Root.LayoutTransform is not ScaleTransform current || Math.Abs(current.ScaleX - scale) > 1e-9)
         {
@@ -312,15 +316,42 @@ public partial class OverlayWindow : Window
         // screen's edges, where the shadow is simply cut off) by the card's margin.
         // Left of that, the app switcher, its tile level with the card's first row.
         var room = Card.Margin;
-        double gap = ScreenGap * _unitPx, width = Math.Round(PanelWidth * _unitPx);
+        double gap = ScreenGap * screen.UnitPx, width = Math.Round(PanelWidth * _unitPx);
         double switcher = Switcher != null ? Math.Round((AppSwitcher.SwitcherWidth - SwitcherOverlap) * _unitPx) : 0;
         Width = ScreenFit.ToWindowUnits(this, width + Math.Round((room.Left + room.Right) * _unitPx) + switcher);
         MaxHeight = ScreenFit.ToWindowUnits(this, screen.Work.Height - 2 * gap + (room.Top + room.Bottom) * _unitPx);
         Top = ScreenFit.ToWindowUnits(this, screen.Work.Y + gap - room.Top * _unitPx);
-        Left = ScreenFit.ToWindowUnits(this, screen.Work.X + screen.Work.Width - width - gap - Math.Round(room.Left * _unitPx) - switcher);
-        SwitcherHost.Margin = new Thickness(0, room.Top + FirstRow - AppSwitcher.TileCentre, -SwitcherOverlap, 0);
-        Switcher?.SetUnit(_unitPx);
-        Switcher?.SetAnchor(AppSwitcher.SwitcherWidth - SwitcherOverlap + room.Left);
+        Left = ScreenFit.ToWindowUnits(this, left
+            ? screen.Work.X + gap - Math.Round(room.Left * _unitPx)
+            : screen.Work.X + screen.Work.Width - width - gap - Math.Round(room.Left * _unitPx) - switcher);
+        // On the left the card comes first and the switcher sits right of it, mirrored.
+        Root.ColumnDefinitions[0].Width = left ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+        Root.ColumnDefinitions[1].Width = left ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(Frame, left ? 0 : 1);
+        Grid.SetColumn(SwitcherHost, left ? 1 : 0);
+        double top = room.Top + FirstRow - AppSwitcher.TileCentre;
+        SwitcherHost.Margin = left ? new Thickness(-SwitcherOverlap, top, 0, 0) : new Thickness(0, top, -SwitcherOverlap, 0);
+        if (Switcher != null)
+        {
+            Switcher.Mirrored = left;
+            Switcher.SetUnit(_unitPx);
+            Switcher.SetAnchor(left ? SwitcherOverlap - room.Right : AppSwitcher.SwitcherWidth - SwitcherOverlap + room.Left);
+        }
+    }
+
+    /// <summary>The panel's size range in percent (Edit on the Quick tab).</summary>
+    public const int MinPanelSize = 80, MaxPanelSize = 130;
+
+    /// <summary>The panel's size or side changed (Edit on the Quick tab): placed again at once.</summary>
+    public void ApplyPlacement()
+    {
+        if (Left < -5000 && !IsVisible) return;  // parked off-screen; placed when it opens
+        PlaceInCorner();
+        if (!IsVisible) return;
+        UpdateLayout();
+        ClipShadow();
+        ShowGlass();
+        _lens.Nudge();
     }
 
     /// <summary>How far below the card's top its first row of controls sits (the Quick tab's
@@ -526,6 +557,13 @@ public partial class OverlayWindow : Window
         if (restoreFocus) RestoreFocus();
     }
 
+    /// <summary>Back one screen, as B does (e.g. after picking a folder).</summary>
+    public void Back()
+    {
+        if (IsVisible && _subPage != null) CloseSubPage();
+        ShowFooter();
+    }
+
     /// <summary>Leaves every screen, back to the page.</summary>
     void CloseAllSubPages(bool restoreFocus = true)
     {
@@ -593,7 +631,7 @@ public partial class OverlayWindow : Window
                     FocusControl(next);
                 else if (command == NavCommand.Up)
                     FocusTabs();  // nothing above in the page: up to the tab row
-                else if (command == NavCommand.Left && Switcher?.Enter() == true)
+                else if (command == (Switcher?.Mirrored == true ? NavCommand.Right : NavCommand.Left) && Switcher?.Enter() == true)
                 {
                     if (Switcher.SelectedView is { } spot) _lens.Follow(spot);  // the drop flies over
                     ShowFooter();
@@ -895,7 +933,45 @@ public partial class OverlayWindow : Window
                     screen.OnHidden();
                     _subPage = null;
                 }
+                // The Quick tab while it's being edited.
+                if (CurrentPage is Features.Performance.PerformancePage quick)
+                {
+                    quick.ShowEditingForCapture(true);
+                    ShowLensOn(null, quick);
+                    SaveImage(Path.Combine(dir, $"{++count:00} {quick.Title} - Edit.png"), background);
+                    quick.ShowEditingForCapture(false);
+                }
                 CurrentPage.OnHidden();
+            }
+            // The whole panel with the app switcher grown: on the right, on the left, and bigger.
+            if (Switcher != null)
+            {
+                var apps = RunningApps.List();
+                var front = apps.FirstOrDefault();
+                var game = new SolidColorBrush(Color.FromRgb(0x5A, 0x6E, 0x8A));
+                (string Side, int Size) placed = (_settings.PanelSide, _settings.PanelSize);
+                try
+                {
+                    foreach (var (side, size) in new[] { ("Right", 100), ("Left", 100), ("Right", 130) })
+                    {
+                        (_settings.PanelSide, _settings.PanelSize) = (side, size);
+                        ShowPage(0);
+                        PlaceInCorner();
+                        Switcher.ShowForCapture(front, apps);
+                        UpdateLayout();
+                        if (Switcher.SelectedView is { } spot) _lens.ShowNow(spot);
+                        SaveWindow(Path.Combine(dir, $"{++count:00} Panel - {side} {size}%.png"), game);
+                        _lens.Hide();
+                        Switcher.Dismiss();
+                        CurrentPage.OnHidden();
+                    }
+                }
+                finally
+                {
+                    (_settings.PanelSide, _settings.PanelSize) = placed;
+                    PlaceInCorner();
+                    Left = -10000;  // closed: parked off-screen as usual
+                }
             }
             Log.Info($"Captured {count} screens to {dir}");
         }
@@ -934,6 +1010,32 @@ public partial class OverlayWindow : Window
             if (FirstShown(child) is { } found) return found;
         }
         return null;
+    }
+
+    /// <summary>Renders the whole panel window (app switcher, card and shadow) over a background.</summary>
+    void SaveWindow(string path, Brush background)
+    {
+        UpdateLayout();
+        MoveTabPill(animate: false);
+        UpdateLayout();
+        var root = (Visual)VisualTreeHelper.GetChild(this, 0);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        int width = (int)(ActualWidth * dpi.DpiScaleX), height = (int)(ActualHeight * dpi.DpiScaleY);
+        var panel = new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        panel.Render(root);
+        var layers = new DrawingVisual();
+        using (var dc = layers.RenderOpen())
+        {
+            var area = new Rect(0, 0, width / dpi.DpiScaleX, height / dpi.DpiScaleY);
+            dc.DrawRectangle(background, null, area);
+            dc.DrawImage(panel, area);
+        }
+        var flat = new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        flat.Render(layers);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(flat));
+        using var file = File.Create(path);
+        encoder.Save(file);
     }
 
     /// <summary>Renders the panel's card (without the shadow around it) as laid out now; a

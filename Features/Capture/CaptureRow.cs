@@ -11,7 +11,8 @@ namespace ClawControl.Features.Capture;
 /// <summary>
 /// The Quick tab's capture tiles, styled like the Wi-Fi / Bluetooth tiles: Screenshot (A takes
 /// one: the panel closes first, a short flash says it's saved) and Record (A starts; while
-/// recording the tile is red with the time, and A stops). Each › opens the Capture screen.
+/// recording the tile is red with the time, and A stops). Each › opens its own screen (size and
+/// folder for screenshots; frame rate, quality, sound and folder for recordings).
 /// </summary>
 public sealed class CaptureRow : UserControl
 {
@@ -21,11 +22,11 @@ public sealed class CaptureRow : UserControl
     readonly Tile _shot, _record;
     readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
 
-    public CaptureRow(CaptureService capture, Action openScreen)
+    public CaptureRow(CaptureService capture, Action openScreenshot, Action openRecord)
     {
         _capture = capture;
-        _shot = new Tile("", "Screenshot", () => _capture.Screenshot(), openScreen);
-        _record = new Tile("", "Record", () => _capture.ToggleRecording(), openScreen);
+        _shot = new Tile("", "Screenshot", () => _capture.Screenshot(), openScreenshot);
+        _record = new Tile("", "Record", () => _capture.ToggleRecording(), openRecord);
         var grid = new Grid { Margin = new Thickness(0, 2, 0, 0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition());
@@ -105,7 +106,7 @@ public sealed class CaptureService(ScreenCapture capture, Settings settings, Fun
     {
         string name = frontApp() ?? "Screen";
         await hidePanel();
-        if (await capture.ScreenshotAsync(name) != null) CaptureFlash.Show();
+        if (await capture.ScreenshotAsync(name, settings.ScreenshotFolder, settings.ScreenshotHeight) != null) CaptureFlash.Show();
     }
 
     public async void ToggleRecording()
@@ -117,15 +118,19 @@ public sealed class CaptureService(ScreenCapture capture, Settings settings, Fun
         }
         string name = frontApp() ?? "Screen";
         await hidePanel();
-        await capture.StartRecordingAsync(name, new RecordOptions(settings.RecordFps, settings.RecordHigh, settings.RecordSound));
+        await capture.StartRecordingAsync(name, new RecordOptions(settings.RecordFps, settings.RecordHigh, settings.RecordSound), settings.RecordFolder);
     }
 
-    public static void OpenFolder()
+    /// <summary>The folder a setting names, or the usual one (Videos\Captures) when unset or gone.</summary>
+    public static string FolderOf(string chosen) => !string.IsNullOrEmpty(chosen) && Directory.Exists(chosen) ? chosen : ScreenCapture.Folder;
+
+    public static void OpenFolder(string chosen)
     {
         try
         {
-            Directory.CreateDirectory(ScreenCapture.Folder);
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{ScreenCapture.Folder}\"") { UseShellExecute = true });
+            string folder = FolderOf(chosen);
+            Directory.CreateDirectory(folder);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
         }
         catch (Exception ex)
         {

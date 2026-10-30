@@ -111,11 +111,15 @@ public partial class App : Application
         _capture = new ScreenCapture();
         var capture = new CaptureService(_capture, _settings, () => _overlay?.HideAndWaitAsync() ?? Task.CompletedTask, () => _overlay?.FrontAppName);
         _capture.Changed += () => Dispatcher.BeginInvoke(() => _overlay?.ExcludeFromCapture(_capture.RecordingSince != null));
-        var captureScreen = new CaptureScreen(capture);
-        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, captureScreen);
-        performancePage.AddTile("capture", new CaptureRow(capture, () => _overlay?.OpenSubPage(captureScreen)));
+        Action<IPage> openSub = page => _overlay?.OpenSubPage(page);
+        Action back = () => _overlay?.Back();
+        var screenshotScreen = new ScreenshotScreen(_settings, openSub, back);
+        var recordScreen = new RecordScreen(_settings, openSub, back);
+        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, screenshotScreen, recordScreen);
+        performancePage.AddTile("capture", new CaptureRow(capture, () => openSub(screenshotScreen), () => openSub(recordScreen)));
         performancePage.AddTile("overlay", new OverlaySection(_settings, _perfOverlay));
         performancePage.ArrangeTiles();
+        performancePage.PanelPlacementChanged += () => _overlay?.ApplyPlacement();
         _graphics = new GraphicsService(_settings);
         var pages = new IPage[]
         {

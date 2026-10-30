@@ -37,8 +37,10 @@ public sealed class ScreenCapture
     /// <summary>A recording started or stopped (any thread).</summary>
     public event Action? Changed;
 
-    /// <summary>Saves what the main screen shows now as a PNG; its path, or null if it failed.</summary>
-    public Task<string?> ScreenshotAsync(string name) => Task.Run(async () =>
+    /// <summary>Saves what the main screen shows now as a PNG in <paramref name="folder"/> (null:
+    /// Videos\Captures), at most <paramref name="maxHeight"/> pixels high (0: full size); its
+    /// path, or null if it failed.</summary>
+    public Task<string?> ScreenshotAsync(string name, string? folder = null, int maxHeight = 0) => Task.Run(async () =>
     {
         try
         {
@@ -57,11 +59,17 @@ public sealed class ScreenCapture
             using var copy = await SoftwareBitmap.CreateCopyFromSurfaceAsync(shot.Surface, BitmapAlphaMode.Premultiplied);
             // Games often leave the alpha channel empty: saved as plain colour, not see-through.
             using var opaque = SoftwareBitmap.Convert(copy, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore);
-            var file = await NewFile(name, ".png");
+            var file = await NewFile(folder, name, ".png");
             using (var stream = await file.OpenAsync(FileAccessMode.ReadWrite))
             {
                 var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
                 encoder.SetSoftwareBitmap(opaque);
+                if (maxHeight > 0 && opaque.PixelHeight > maxHeight)
+                {
+                    encoder.BitmapTransform.ScaledHeight = (uint)maxHeight;
+                    encoder.BitmapTransform.ScaledWidth = (uint)Math.Round(opaque.PixelWidth * (double)maxHeight / opaque.PixelHeight);
+                    encoder.BitmapTransform.InterpolationMode = BitmapInterpolationMode.Fant;
+                }
                 await encoder.FlushAsync();
             }
             Log.Info($"Screenshot saved: {file.Path}");
@@ -74,13 +82,14 @@ public sealed class ScreenCapture
         }
     });
 
-    /// <summary>Starts recording the main screen; false if it couldn't start.</summary>
-    public async Task<bool> StartRecordingAsync(string name, RecordOptions options)
+    /// <summary>Starts recording the main screen into <paramref name="folder"/> (null:
+    /// Videos\Captures); false if it couldn't start.</summary>
+    public async Task<bool> StartRecordingAsync(string name, RecordOptions options, string? folder = null)
     {
         if (_recorder != null) return true;
         try
         {
-            var file = await NewFile(name, ".mp4");
+            var file = await NewFile(folder, name, ".mp4");
             var recorder = new Recorder(file, options);
             _recorder = recorder;
             recorder.Finished += () =>
@@ -112,10 +121,12 @@ public sealed class ScreenCapture
         recorder?.Done.Wait(wait);
     }
 
-    static async Task<StorageFile> NewFile(string name, string extension)
+    static async Task<StorageFile> NewFile(string? path, string name, string extension)
     {
-        Directory.CreateDirectory(Folder);
-        var folder = await StorageFolder.GetFolderFromPathAsync(Folder);
+        // A chosen folder that's gone (an SD card taken out): the usual one.
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) path = Folder;
+        Directory.CreateDirectory(path);
+        var folder = await StorageFolder.GetFolderFromPathAsync(path);
         string clean = string.Concat(name.Split(Path.GetInvalidFileNameChars())).Trim();
         if (clean.Length == 0) clean = "Screen";
         return await folder.CreateFileAsync($"{clean} {DateTime.Now:yyyy-MM-dd HH-mm-ss}{extension}", CreationCollisionOption.GenerateUniqueName);

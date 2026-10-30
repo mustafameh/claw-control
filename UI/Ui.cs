@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using ClawControl.Features.Controller;
 
@@ -132,6 +133,25 @@ static class Ui
             grid.Children.Add(buttons[i]);
         }
         return (grid, buttons);
+    }
+
+    /// <summary>Selects a control in the panel (the drop follows), e.g. after a list was rebuilt.</summary>
+    public static void Select(FrameworkElement element)
+    {
+        element.Focus();
+        if (Window.GetWindow(element) is { } window) FocusManager.SetFocusedElement(window, element);
+        element.BringIntoView();
+    }
+
+    /// <summary>A card row: a name on the left, its chips (a Segment) on the right.</summary>
+    public static FrameworkElement Labelled(string name, FrameworkElement chips)
+    {
+        var title = Text(name, bold: true);
+        title.VerticalAlignment = VerticalAlignment.Center;
+        title.Margin = new Thickness(12, 0, 8, 0);
+        chips.Width = 190;
+        DockPanel.SetDock(chips, Dock.Right);
+        return new DockPanel { MinHeight = 50, Children = { chips, title } };
     }
 
     public static void Choose(Button[] buttons, int index)

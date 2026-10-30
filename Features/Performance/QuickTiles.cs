@@ -25,6 +25,9 @@ sealed class QuickTiles
     readonly Settings _settings;
     readonly List<Tile> _tiles = new();
     readonly Button _edit;
+    /// <summary>While editing, at the top: the panel's size and side.</summary>
+    readonly StackPanel _panelOptions;
+    readonly Button[] _sides;
     Tile? _picked;
 
     public bool Editing { get; private set; }
@@ -32,10 +35,39 @@ sealed class QuickTiles
     /// <summary>Editing started or stopped (the page shows its media strip while editing).</summary>
     public event Action? EditingChanged;
 
+    /// <summary>The panel's size or side changed: the panel places itself again.</summary>
+    public event Action? PlacementChanged;
+
     public QuickTiles(Panel host, Settings settings)
     {
         _host = host;
         _settings = settings;
+
+        var size = Ui.Slider("", "Panel size", UI.OverlayWindow.MaxPanelSize, 5);
+        size.Minimum = UI.OverlayWindow.MinPanelSize;
+        size.Value = Math.Clamp(settings.PanelSize, UI.OverlayWindow.MinPanelSize, UI.OverlayWindow.MaxPanelSize);
+        size.ValueText = $"{(int)size.Value}%";
+        size.ValueChanged += (_, e) =>
+        {
+            int percent = (int)Math.Round(e.NewValue);
+            size.ValueText = $"{percent}%";
+            if (percent == _settings.PanelSize) return;
+            _settings.PanelSize = percent;
+            _settings.SaveSoon();
+            PlacementChanged?.Invoke();
+        };
+        (var sides, _sides) = Ui.Segment(["Left", "Right"], i =>
+        {
+            _settings.PanelSide = i == 0 ? "Left" : "Right";
+            _settings.SaveSoon();
+            Ui.Choose(_sides!, i);
+            PlacementChanged?.Invoke();
+        });
+        Ui.Choose(_sides, settings.PanelSide == "Left" ? 0 : 1);
+        _panelOptions = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 6) };
+        _panelOptions.Children.Add(size);
+        _panelOptions.Children.Add(ListRow.Card([Ui.Labelled("Side", sides)]));
+
         _edit = new Button
         {
             Style = Ui.Style("ChipButton"), Content = Ui.Text("Edit", bold: true), MinHeight = 34, MinWidth = 96,
@@ -60,6 +92,7 @@ sealed class QuickTiles
         }
         _tiles.Sort((a, b) => saved.IndexOf(a.Id).CompareTo(saved.IndexOf(b.Id)));
         _host.Children.Clear();
+        _host.Children.Add(_panelOptions);
         foreach (var tile in _tiles) _host.Children.Add(tile.View);
         _host.Children.Add(_edit);
         foreach (var tile in _tiles) tile.Show();
@@ -67,13 +100,15 @@ sealed class QuickTiles
 
     bool Hidden(Tile tile) => _settings.QuickHidden.Contains(tile.Id);
 
-    void Start()
+    /// <param name="select">False for debug captures (the panel is closed).</param>
+    public void Start(bool select = true)
     {
         Editing = true;
+        _panelOptions.Visibility = Visibility.Visible;
         foreach (var tile in _tiles) tile.Show();
         ((TextBlock)_edit.Content).Text = "Done";
         EditingChanged?.Invoke();
-        Select(_tiles.First().Handle);
+        if (select) Select(_tiles.First(t => t.View.Visibility == Visibility.Visible).Handle);
     }
 
     /// <summary>Done (B, Done, the panel closing, another page): saves the order.</summary>
@@ -82,6 +117,7 @@ sealed class QuickTiles
         if (!Editing) return;
         Drop();
         Editing = false;
+        _panelOptions.Visibility = Visibility.Collapsed;
         foreach (var tile in _tiles) tile.Show();
         ((TextBlock)_edit.Content).Text = "Edit";
         _settings.QuickOrder = _tiles.Select(t => t.Id).ToList();
@@ -126,7 +162,7 @@ sealed class QuickTiles
         _tiles.RemoveAt(from);
         _tiles.Insert(to, tile);
         _host.Children.Remove(tile.View);
-        _host.Children.Insert(to, tile.View);
+        _host.Children.Insert(to + 1, tile.View);  // after the panel options
         return tile.Handle;
     }
 

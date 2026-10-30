@@ -31,6 +31,10 @@ public sealed class Settings
     /// <summary>Sharpening strength to go back to when the Sharpen circle turns it on again.</summary>
     public int Sharpness { get; set; } = 50;
     public Dictionary<string, string> LastFocusByPage { get; set; } = new();
+    /// <summary>The panel's size in percent of normal (Edit on the Quick tab); text and all scale together.</summary>
+    public int PanelSize { get; set; } = 100;
+    /// <summary>The screen edge the panel sits at: "Right" (normal) or "Left".</summary>
+    public string PanelSide { get; set; } = "Right";
     /// <summary>The Quick tab's tiles top to bottom (ids; ones missing here go in their usual place).</summary>
     public List<string> QuickOrder { get; set; } = new();
     /// <summary>Quick tab tiles hidden with Edit.</summary>
@@ -39,6 +43,11 @@ public sealed class Settings
     public int RecordFps { get; set; } = 60;
     public bool RecordHigh { get; set; }
     public bool RecordSound { get; set; } = true;
+    /// <summary>Where screenshots / recordings go ("" = Videos\Captures).</summary>
+    public string ScreenshotFolder { get; set; } = "";
+    public string RecordFolder { get; set; } = "";
+    /// <summary>Screenshots at most this many pixels high (0 = the screen's full size).</summary>
+    public int ScreenshotHeight { get; set; }
     /// <summary>Log every press, key and command too (for bug reports; see Log.Detail).</summary>
     public bool DetailedLog { get; set; }
 

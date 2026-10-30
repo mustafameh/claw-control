@@ -173,6 +173,20 @@ public partial class PerformancePage : UserControl, IPage
     /// <summary>Puts the tiles in the order the user chose.</summary>
     public void ArrangeTiles() => _tiles.Arrange();
 
+    /// <summary>Debug captures: the tab as it looks while editing (true), or back.</summary>
+    public void ShowEditingForCapture(bool editing)
+    {
+        if (editing) _tiles.Start(select: false);
+        else _tiles.Stop(select: false);
+    }
+
+    /// <summary>Edit changed the panel's size or side.</summary>
+    public event Action? PanelPlacementChanged
+    {
+        add => _tiles.PlacementChanged += value;
+        remove => _tiles.PlacementChanged -= value;
+    }
+
     /// <summary>The row above volume and brightness (controller mode, Wi-Fi, Bluetooth).</summary>
     public void SetTopRow(UIElement row) => TopRow.Content = row;
 
