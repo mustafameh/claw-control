@@ -9,6 +9,15 @@ static class NativeWindow
     const byte VK_MENU = 0x12;
     const uint KEYEVENTF_KEYUP = 0x0002;
 
+    /// <summary>The window never becomes the active one (clicks and focus calls don't activate it).</summary>
+    public static void SetNoActivate(IntPtr hwnd, bool on)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        const int WS_EX_NOACTIVATE = 0x08000000;
+        int style = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, on ? style | WS_EX_NOACTIVATE : style & ~WS_EX_NOACTIVATE);
+    }
+
     /// <summary>Keeps the panel out of Alt+Tab and the taskbar.</summary>
     public static void HideFromAltTab(IntPtr hwnd) =>
         SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);

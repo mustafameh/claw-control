@@ -135,9 +135,11 @@ public sealed class MetricsSampler : IDisposable
     /// (on, but adding none: not full screen, fast motion, an unsupported game), "Off".</summary>
     (string?, bool) FrameGen(PresentMonFps? fps, int targetPid)
     {
+        // Frames counted first: a game's own AMD profile can turn it on while the main switch is off.
+        var generated = fps?.GeneratedFor(targetPid);
+        if (generated >= 1) return ($"+{generated:0}", true);
         if (_amd() is { FrameGenOn: false }) return ("Off", false);
-        if (fps?.GeneratedFor(targetPid) is not double generated) return (null, false);
-        return generated >= 1 ? ($"+{generated:0}", true) : ("Idle", false);
+        return generated is null ? (null, false) : ("Idle", false);
     }
 
     /// <summary>"RSR 1280×800" (the driver upscales a full-screen game, green), "Scaled 1280×800"
