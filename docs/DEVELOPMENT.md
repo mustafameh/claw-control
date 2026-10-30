@@ -48,6 +48,9 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     values loaded in the background may be missing on the first capture after a start.
 - Input injected with SendInput from a non-admin process is silently blocked while the elevated
   panel is in front (UIPI): keep the panel closed during such tests.
+- `Core/Warmup` compiles the panel's code (UI, Features, Input) once on a low-priority thread
+  10 s after start, so the first use of something (the switcher growing) doesn't drop frames
+  while .NET compiles it.
 - ReadyToRun (precompiled) builds were measured and bring nothing here (same compile time and
   startup CPU, +31 MB). Measured cost: panel closed ≈ 0.3 % of one core (≈ 1 % with the overlay
   on, plus PresentMon 0.1 %), panel open ≈ 15 %, ~240 MB working set, ~3 s CPU at startup.
@@ -95,12 +98,28 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     full size (`_grow`; glass pieces carry an opacity, `SelectionLens.Nudge` keeps the drop on it);
     the live preview shows only at full size. D-pad left from the page's left edge hands it the
     D-pad (`OverlayWindow.Handle` passes commands on until it lets go). Live previews are DWM
-    thumbnails (`UI/WindowPreview`) drawn into the glass window under a hole in the frame. X =
+    thumbnails (`UI/WindowPreview`) drawn into the glass window under a hole in the frame. The
+    glass gets the card and the switcher as two layers (`GlassBackdrop.Layer`): the switcher's
+    pieces in its own units with one transform, so growing changes one transform, and only
+    pieces that changed are sent. While hidden the glass is left in the closed look
+    (`GlassBackdrop.Update`): a shown window draws its old pieces for a frame first. The arc
+    keeps its icon views when a fresh list comes in and is re-placed only when it turns. X =
     `NavCommand.Action` (numpad 1 in the panel mapping; only the switcher uses it, so a stray X on a page can't end an app). Store apps:
     their windows belong to the frame host (`ApplicationFrameWindow`); `RunningApps.Identify` finds
     the app's own process through the inner `CoreWindow` and its name / tile icon through the
     window's AppUserModelID (`shell:AppsFolder\<id>`); apps are keyed by `RunningApp.Key`. Apps come in Alt + Tab order
-    (`RunningApps.List`), icons from the shell at 96 px (`RunningApps.LargeIcon`).
+    (`RunningApps.List`, one process snapshot per list), icons from the shell at 96 px; names and
+    icons are learned once per app and kept. The app in front is known at once on opening
+    (`RunningApps.Recall`: window calls only, plus what was learned), `Describe` fills in the rest.
+  - Quick tab tiles (`Performance/QuickTiles`, 2026-10-30): each part of the tab is a tile in a
+    saved order (`QuickOrder`, `QuickHidden`). Edit (bottom of the tab) puts a clear block
+    (`Handle`) over each tile and leaves the tile's own controls out of navigation
+    (`PanelInput.Skip`); A picks a tile up, up / down move it (`PanelInput.Steer`), X hides it
+    (`PanelInput.Action`, the footer shows `ActionHint`), B / Done leaves (`IPage.HandleBack`,
+    `IPage.BackHint`).
+  - Capture (`Features/Capture`, `Hardware/ScreenCapture`): Screenshot / Record tiles and the
+    Capture screen. The panel closes first (`OverlayWindow.HideAndWaitAsync`); while recording,
+    the panel and glass are excluded from capture (`SetWindowDisplayAffinity`).
 - Input: the panel mapping (`ControllerService.PanelMapping`, docs/HARDWARE.md "Panel mapping")
   has the chip send keys instead of buttons while the panel is open, so games don't see the
   presses; `DesktopInputBlocker` (low-level hooks, only while open) takes those keys and MSI's
@@ -237,6 +256,10 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 - A see-through (layered) window shows its last picture again for a moment when it's shown next
   time. `HidePanel` moves the panel off-screen at once, lets it draw its reset look (mini app
   switcher, no drop) for a few frames, then hides it (`HideAfterDrawing`).
+- Setting a new `LayoutTransform` (even an equal one) re-lays out the whole panel: compare first.
+- `Process.ProcessName` and `GetProcessesByName` each take a new snapshot of every process;
+  `Process.MainModule` lists the process's modules (slow for games). Use one
+  `Process.GetProcesses()` and `QueryFullProcessImageName`.
 - Never set `Foreground = null` to mean "inherit": it's a local value and the text draws
   invisibly. Leave the property unset.
 - During captures the panel is hidden, so `IsVisible` is false everywhere: capture code checks

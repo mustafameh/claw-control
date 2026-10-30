@@ -125,6 +125,22 @@ installed. Other Claw models use different firmware and are not supported.
   non-game window comes to the front, so gamepad mode is requested again at 0.5 / 1 / 2 s and
   whenever Desktop-mode input shows up while the panel is open.
 - MSI's component pipes `MCXNPS_*` are encrypted and signature-checked: not used.
+- `xinputmode_set` does nothing when the chip was put in Desktop mode by Claw Control (MSI
+  still thinks it's a gamepad), and in Desktop mode LB / RB send nothing: then the chip is
+  switched to Xbox mode (36) while the panel is open and back to Desktop after.
+
+## Screen capture
+
+- `Hardware/ScreenCapture`: `Windows.Graphics.Capture` of the primary monitor
+  (`IGraphicsCaptureItemInterop.CreateForMonitor`) on a D3D11 device. The SDK projection
+  (19041) lacks `IsBorderRequired` / `MinUpdateInterval`: set through
+  `IGraphicsCaptureSession3` (`f2cdd966-22ae-5ea1-9596-3a289344c3be`) and `...Session5`
+  (`67c0ea62-1f85-5061-925a-239be0ac09cb`), vtable slot 7 (IIDs from
+  `System32\WinMetadata\Windows.Graphics.winmd`).
+- Recording: a `MediaStreamSource` (BGRA surfaces + 16-bit PCM) into `MediaTranscoder`
+  (hardware, H.264 / AAC MP4). Sound is the speakers' WASAPI loopback, which sends nothing
+  while silent: silence is filled in up to the clock. Windows' Game Bar capture
+  (`HKCU\...\GameDVR\AppCaptureEnabled`) was off on this Claw, so it isn't relied on.
 
 ## AMD graphics (ADLX)
 
@@ -144,6 +160,14 @@ installed. Other Claw models use different firmware and are not supported.
   0.5-16 GB; applies after a restart.
 - Frame generation, upscaling and the FPS cap are read by the driver when a game starts its
   graphics: a change reaches a running game only after the game restarts.
+- ADLX says whether a feature is on, never whether it's at work. The overlay works that out
+  (`Monitoring/Scaling`, `PresentMonFps`): **RSR** upscales only when it's on, a game fills the
+  screen and the screen is driven below its own size (current mode vs the target's preferred
+  mode, `DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE`; the driver can list bigger
+  virtual modes); lower without that is plain scaling. **AFMF** frames: PresentMon 2.6
+  `--v2_metrics --track_frame_type` marks each displayed frame `Application` or `AMD AFMF`
+  (needs display tracking; the frame types seen are logged once). A game's own FSR happens
+  inside its frames and can't be seen from outside.
 - Ranges: FRTC 15-1000, image sharpening 10-100 in steps of 10, RSR sharpness 0-100. The screen's
   FreeSync range is 48-120 Hz; Windows offers 60 / 120 Hz modes.
 

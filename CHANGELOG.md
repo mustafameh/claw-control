@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.6 (not released yet)
+
+- **Quick tab: arrange it.** Edit at the bottom of the tab: move tiles with A and up / down,
+  hide them with X.
+- **Screenshot and Record tiles**: saved to Videos › Captures, recordings with the game's sound
+  (frame rate and quality on the Capture screen). Works without Windows' Game Bar capture.
+- **Overlay**: Size bar; **Frame gen** and **Upscaling** numbers that show what's really at work
+  (AFMF's added frames, RSR or plain scaling), not just what's switched on.
+- **Fixed:** in mouse mode chosen in Claw Control, LB / RB did nothing in the panel.
+- **Fixed:** the app switcher flashed full size when the panel opened, stuttered in its first
+  second (it was rebuilt up to three times) and showed the game on the arc before moving it to
+  the tile. Listing apps is much lighter, the glass is updated far less, and the panel's code
+  is compiled ahead of its first use.
+
 ## 0.1.5 (2026-10-27)
 
 - **Fixed:** games that keep their logo only on their window (Fortnite and others) showed a blank

@@ -82,6 +82,12 @@ Top to bottom:
 - **Custom limits** (only in Custom): **Sustained** (7-35 W), **Slow boost** (9-50 W) and **Fast
   boost** (9-60 W). The values are applied to the firmware right away and written to MSI's
   settings too, so MSI Center M keeps them after sleep or plugging in the charger.
+- **Screenshot** and **Record**: **A** on Screenshot closes the panel and saves what's on the
+  screen (the screen flashes once). **A** on Record closes the panel and starts recording the
+  screen with the game's sound; the tile turns red with the time, and **A** on it again stops.
+  Files go to **Videos › Captures**. Their **›** opens **Capture**: frame rate (30 / 60),
+  quality, game sound on / off, and the Captures folder. The panel never shows up in Claw
+  Control's own recordings.
 - **Overlay**: switches the [performance overlay](#performance-overlay) on or off. While it's on,
   pick where it sits on a mini screen and which numbers it shows.
 
@@ -169,7 +175,23 @@ position (four corners, or top / bottom centre in a row) and up to twelve number
 
 FPS comes from Intel PresentMon, which reads Windows' frame events, so it works in every game and
 graphics API without hooking into the game. The overlay and PresentMon only run while the overlay
-is on.
+is on. **Size** makes the numbers bigger or smaller (80-200 %).
+
+Two numbers say what's really at work, not just what's switched on (green while it works):
+
+- **Frame gen**: the frames per second AMD Fluid Motion Frames adds (`+58`), counted frame by
+  frame on the screen. **Idle**: it's on but adding nothing right now (not full screen, fast
+  motion, a game it doesn't support). **Off**: switched off.
+- **Upscaling**: **RSR 1280×800** when Radeon Super Resolution upscales a full-screen game
+  running below the screen's own resolution; **Scaled 1280×800** when a lower resolution is
+  simply stretched (RSR off, or the desktop itself set lower); **Native** otherwise. A game's
+  own FSR happens inside the game and can't be seen from outside; the screen shows Native then.
+
+## Arranging the Quick tab
+
+**Edit** at the bottom of the Quick tab: every tile gets the selection around it. **A** picks a
+tile up, **up / down** move it, **A** drops it; **X** hides or shows it (hidden tiles stay dimmed
+while editing and are gone afterwards); **B** or **Done** finishes.
 
 ## Good to know
 
