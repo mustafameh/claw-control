@@ -55,7 +55,7 @@ almost nothing while it's closed.
 - **An honest overlay:** besides FPS, watts and temperatures it shows whether frame generation
   really adds frames and whether RSR really upscales right now, not just whether they're on.
 - **Light on battery:** with the panel closed it uses about 0.3 % of one CPU core and polls
-  nothing. No internet connection, no telemetry.
+  nothing. No telemetry: its only connection is one look at GitHub a day for a new version.
 
 ## Download and install
 

@@ -48,6 +48,11 @@ public sealed class Settings
     public string RecordFolder { get; set; } = "";
     /// <summary>Screenshots at most this many pixels high (0 = the screen's full size).</summary>
     public int ScreenshotHeight { get; set; }
+    /// <summary>The last look at GitHub for a new version (Core/Updates), and what it found.</summary>
+    public DateTime LastUpdateCheck { get; set; }
+    public UpdateInfo? Update { get; set; }
+    /// <summary>The version whose Update screen was already shown once.</summary>
+    public string UpdatePrompted { get; set; } = "";
     /// <summary>Log every press, key and command too (for bug reports; see Log.Detail).</summary>
     public bool DetailedLog { get; set; }
 

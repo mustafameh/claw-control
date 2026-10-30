@@ -127,7 +127,10 @@ public partial class App : Application
             new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page)),
             new ControllerPage(_controller, page => _overlay?.OpenSubPage(page)),
         };
-        _overlay = new OverlayWindow(pages, _settings, net) { SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu, Switcher = new AppSwitcher() };
+        _overlay = new OverlayWindow(pages, _settings, net)
+        {
+            SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu, Switcher = new AppSwitcher(), Updater = new Updates(_settings),
+        };
         _performance.Changed += UpdateStatus;
         UpdateStatus();
         _overlay.Prewarm();

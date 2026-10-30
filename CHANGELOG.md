@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8 (2026-10-30)
+
+- **Updates in the app:** once a day, when the panel opens, Claw Control asks GitHub whether a
+  new version is out. The first time it finds one, the panel opens on **Update** (what's new and
+  **Update now**); after that a green sign glows next to the power sign until it's installed.
+  Update now downloads the setup, checks it against the release's checksums and installs it.
+
 ## 0.1.7 (2026-10-30)
 
 - **Fixed:** Frame gen didn't switch on, and Upscaling was missing from the Graphics tab, until

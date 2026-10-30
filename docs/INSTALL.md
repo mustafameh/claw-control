@@ -76,7 +76,11 @@ The hash must match the line for that file.
   (firmware, and MSI's own registry key so MSI keeps them), controller settings (the controller's
   memory), AMD graphics settings, display and sound settings.
 
-Claw Control never connects to the internet.
+Claw Control connects to one place only: GitHub, once a day when you open the panel, to see
+whether a new version is out (it sends nothing about you or the device). When one is, a green
+sign shows next to the power sign in the panel's header; **Update now** downloads the setup
+from the GitHub release, checks it against the release's `SHA256SUMS.txt` and installs it.
+Nothing installs unless you press it.
 
 ## Updating
 

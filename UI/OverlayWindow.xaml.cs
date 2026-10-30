@@ -224,6 +224,57 @@ public partial class OverlayWindow : Window
 
     void AppChip_Click(object sender, RoutedEventArgs e) => OpenAppsMenu();
 
+    /// <summary>New versions (checked once a day as the panel opens) and the screen that installs one.</summary>
+    public Updates? Updater
+    {
+        get => _updater;
+        init
+        {
+            _updater = value;
+            if (value == null) return;
+            _updateScreen = new UpdateScreen(value);
+            PanelInput.SetHint(UpdateChip, "Update");
+            value.Found += () => Dispatcher.BeginInvoke(() => ShowUpdateChip(glow: true));
+        }
+    }
+
+    readonly Updates? _updater;
+    UpdateScreen? _updateScreen;
+
+    void UpdateChip_Click(object sender, RoutedEventArgs e) => OpenUpdate();
+
+    void OpenUpdate()
+    {
+        if (_updateScreen == null || _subPage == _updateScreen) return;
+        CloseAllSubPages(restoreFocus: false);
+        OpenSubPage(_updateScreen);
+    }
+
+    /// <summary>The header's update sign while a newer version waits; it glows a few times when it
+    /// appears or the panel opens (then stays still: nothing animates for long).</summary>
+    void ShowUpdateChip(bool glow)
+    {
+        bool available = _updater?.Available != null;
+        UpdateChip.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        if (!available || !glow) return;
+        var pulse = new DoubleAnimation(0.35, 0.95, TimeSpan.FromMilliseconds(700))
+        {
+            AutoReverse = true, RepeatBehavior = new RepeatBehavior(3), EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+        };
+        UpdateGlow.BeginAnimation(OpacityProperty, pulse);
+    }
+
+    /// <summary>Opening: asks GitHub if due; the first opening after a new version was found shows Update.</summary>
+    void OfferUpdate()
+    {
+        if (_updater == null) return;
+        _updater.CheckIfDue();
+        ShowUpdateChip(glow: true);
+        if (!_updater.ShouldPrompt) return;
+        _updater.MarkPrompted();
+        Dispatcher.BeginInvoke(OpenUpdate, DispatcherPriority.Loaded);
+    }
+
     /// <summary>Y / the chip: opens Apps &amp; power over whatever is shown (again: back out).</summary>
     void OpenAppsMenu()
     {
@@ -285,6 +336,7 @@ public partial class OverlayWindow : Window
             Log.Info("Panel shown but Windows kept another app in the foreground");
         Activate();
         RestoreFocus(opening: true);
+        OfferUpdate();
         ShowFooter();
         if (SaveSnapshots)
             Dispatcher.BeginInvoke(SaveSnapshot, DispatcherPriority.ApplicationIdle);
@@ -614,11 +666,20 @@ public partial class OverlayWindow : Window
         }
 
         bool onTabs = focused != null && Tabs.Children.Contains(focused);
-        bool onChip = focused == AppChip;
+        bool onChip = focused == AppChip || focused == UpdateChip;
         switch (command)
         {
             case NavCommand.Menu:
                 OpenAppsMenu();
+                break;
+            // The header's two signs: power, then the update sign right of it.
+            case NavCommand.Right when focused == AppChip && UpdateChip.Visibility == Visibility.Visible:
+                UpdateChip.Focus();
+                FocusManager.SetFocusedElement(this, UpdateChip);
+                break;
+            case NavCommand.Left when focused == UpdateChip:
+                AppChip.Focus();
+                FocusManager.SetFocusedElement(this, AppChip);
                 break;
             // The header chip sits above the tab row.
             case NavCommand.Down when onChip:

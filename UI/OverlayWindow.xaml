@@ -91,6 +91,7 @@
                 </StackPanel>
                 <TextBlock x:Name="ClockText" DockPanel.Dock="Left" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <!-- The app that was in front (or a power sign): opens Apps & power, like Y. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <Button x:Name="AppChip" Style="{StaticResource HeaderChip}" HorizontalAlignment="Left" Margin="8,0,0,0" Click="AppChip_Click">
                     <StackPanel Orientation="Horizontal">
                         <Image x:Name="AppChipIcon" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
@@ -98,6 +99,17 @@
                         <TextBlock x:Name="AppChipGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Margin="5,1,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <!-- A new version (Core/Updates): a green glowing sign until it's installed; opens Update. -->
+                <Button x:Name="UpdateChip" Style="{StaticResource HeaderChip}" Margin="6,0,0,0" Click="UpdateChip_Click" Visibility="Collapsed">
+                    <Grid>
+                        <Ellipse x:Name="UpdateGlow" Width="22" Height="22" Fill="#FF34C759" Opacity="0.35">
+                            <Ellipse.Effect><BlurEffect Radius="8"/></Ellipse.Effect>
+                        </Ellipse>
+                        <TextBlock Text="&#xE896;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="#FF4CD964"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                    </Grid>
+                </Button>
+                </StackPanel>
             </DockPanel>
 
             <!-- Pages as a pill switch, changed with LB / RB or by tapping. -->
