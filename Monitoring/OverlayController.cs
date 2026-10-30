@@ -10,13 +10,15 @@ public sealed class OverlayController
 {
     readonly Settings _settings;
     readonly Func<string> _tdpText;
+    readonly Func<AmdLive?> _amd;
     MetricsSampler? _sampler;
     OverlayHud? _hud;
 
-    public OverlayController(Settings settings, Func<string> tdpText)
+    public OverlayController(Settings settings, Func<string> tdpText, Func<AmdLive?> amd)
     {
         _settings = settings;
         _tdpText = tdpText;
+        _amd = amd;
     }
 
     public bool IsRunning => _sampler != null;
@@ -31,14 +33,14 @@ public sealed class OverlayController
         }
         if (_hud == null)
         {
-            _hud = new OverlayHud(_settings.OverlayPosition);
-            _sampler = new MetricsSampler(_settings.OverlayItems, _tdpText);
+            _hud = new OverlayHud(_settings.OverlayPosition, _settings.OverlaySize);
+            _sampler = new MetricsSampler(_settings.OverlayItems, _tdpText, _amd);
             _sampler.Updated += _hud.Update;
             Log.Info($"Performance overlay on: {string.Join(", ", _settings.OverlayItems)}");
         }
         else
         {
-            _hud.SetPosition(_settings.OverlayPosition);
+            _hud.SetPosition(_settings.OverlayPosition, _settings.OverlaySize);
             _sampler!.SetItems(_settings.OverlayItems);
         }
     }

@@ -32,6 +32,7 @@ public sealed class GraphicsService : IDisposable
         {
             Note("set", state);
             Amd = state;
+            if (state.Available) _live = new(state.UpscalingOn, state.FrameGenOn);
             Changed?.Invoke();
         };
     }
@@ -59,6 +60,28 @@ public sealed class GraphicsService : IDisposable
     }
 
     // ---- AMD ----
+
+    Monitoring.AmdLive? _live;
+    long _liveAt = long.MinValue;
+    int _liveReading;
+
+    /// <summary>
+    /// For the overlay (any thread): whether RSR and frame generation are on in the driver. The
+    /// last answer comes back at once; it's asked again in the background when older than a few
+    /// seconds, so a change made in AMD Software shows too. Nothing is asked unless the overlay asks.
+    /// </summary>
+    public Monitoring.AmdLive? Live()
+    {
+        long now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _liveAt) > 5000 && Interlocked.Exchange(ref _liveReading, 1) == 0)
+            _ = _amd.ReadSwitchesAsync().ContinueWith(task =>
+            {
+                if (task.IsCompletedSuccessfully && task.Result is var (upscaling, frameGen)) _live = new(upscaling, frameGen);
+                Interlocked.Exchange(ref _liveAt, Environment.TickCount64);
+                Interlocked.Exchange(ref _liveReading, 0);
+            }, TaskScheduler.Default);
+        return _live;
+    }
 
     /// <summary>0 = no limit.</summary>
     public void SetFpsLimit(int fps) => _amd.SetFpsLimit(fps);

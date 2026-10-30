@@ -81,6 +81,17 @@ public sealed class AmdGraphics : IDisposable
 
     public Task<AmdState> ReadAsync() => _worker.Run(Read);
 
+    /// <summary>Just whether upscaling (RSR) and frame generation are on (two driver calls, for the overlay).</summary>
+    public Task<(bool Upscaling, bool FrameGen)?> ReadSwitchesAsync() => _worker.Run<(bool, bool)?>(() =>
+    {
+        if (!Start()) return null;
+        try
+        {
+            return (Adlx.Supported(_rsr, Adlx.RsrSupported) && Adlx.Bool(_rsr, Adlx.RsrEnabled), Adlx.Supported(_afmf, Adlx.ToggleEnabled));
+        }
+        catch (Adlx.Exception) { return null; }
+    });
+
     /// <summary>0 turns the limit off.</summary>
     public void SetFpsLimit(int fps) => _fps.Post(fps);
 

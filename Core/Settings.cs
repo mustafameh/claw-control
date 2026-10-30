@@ -14,6 +14,8 @@ public sealed class Settings
     public bool OverlayEnabled { get; set; }
     public string OverlayPosition { get; set; } = "TopLeft";
     public List<string> OverlayItems { get; set; } = new(Monitoring.Metrics.Defaults);
+    /// <summary>How big the overlay's numbers are, in percent of the normal size.</summary>
+    public int OverlaySize { get; set; } = 100;
     public string LastPage { get; set; } = "performance";
     /// <summary>The user turned the built-in controller off (it's turned back on while the panel is open).</summary>
     public bool ControllerOff { get; set; }

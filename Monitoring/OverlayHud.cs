@@ -20,6 +20,8 @@ public sealed class OverlayHud : IDisposable
     static readonly Brush PanelBrush = Freeze(new SolidColorBrush(Color.FromArgb(0xB4, 0x10, 0x12, 0x16)));
     static readonly Brush LabelBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x9A, 0xA3, 0xB2)));
     static readonly Brush ValueBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF2, 0xF4, 0xF8)));
+    /// <summary>A value that says something is at work (frame generation adding frames, RSR upscaling).</summary>
+    static readonly Brush LitBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x4C, 0xD9, 0x64)));
     static readonly FontFamily Font = new("Segoe UI Variable Text, Segoe UI");
 
     readonly Thread _thread;
@@ -29,10 +31,13 @@ public sealed class OverlayHud : IDisposable
     readonly List<TextBlock> _values = new();
     string[] _labels = Array.Empty<string>();
     string _position;
+    /// <summary>The numbers' size in percent of normal (the overlay tile's Size bar).</summary>
+    int _size;
 
-    public OverlayHud(string position)
+    public OverlayHud(string position, int size)
     {
         _position = position;
+        _size = size;
         _thread = new Thread(Run) { IsBackground = true, Name = "Overlay" };
         _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
@@ -42,11 +47,13 @@ public sealed class OverlayHud : IDisposable
     public void Update(IReadOnlyList<MetricReading> readings) =>
         _dispatcher?.BeginInvoke(() => Show(readings));
 
-    public void SetPosition(string position)
+    public void SetPosition(string position, int size)
     {
-        _position = position;
         _dispatcher?.BeginInvoke(() =>
         {
+            if (position == _position && size == _size) return;
+            _position = position;
+            _size = size;
             _labels = Array.Empty<string>();  // relayout: corners stack, centres use a row
             Place();
         });
@@ -120,7 +127,11 @@ public sealed class OverlayHud : IDisposable
         var labels = readings.Select(r => r.Label).ToArray();
         if (!labels.SequenceEqual(_labels)) Rebuild(labels);
         for (int i = 0; i < readings.Count; i++)
+        {
             if (_values[i].Text != readings[i].Value) _values[i].Text = readings[i].Value;
+            var brush = readings[i].Lit ? LitBrush : ValueBrush;
+            if (_values[i].Foreground != brush) _values[i].Foreground = brush;
+        }
         KeepOnTop();
     }
 
@@ -172,7 +183,7 @@ public sealed class OverlayHud : IDisposable
     {
         if (_window == null || _panel == null || _window.ActualWidth == 0) return;
         var screen = ScreenFit.Primary();
-        double scale = ScreenFit.Scale(_window, screen);
+        double scale = ScreenFit.Scale(_window, screen) * Math.Clamp(_size, 50, 300) / 100.0;
         if (_panel.LayoutTransform is not ScaleTransform zoom || Math.Abs(zoom.ScaleX - scale) > 0.001)
         {
             _panel.LayoutTransform = new ScaleTransform(scale, scale);

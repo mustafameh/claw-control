@@ -41,7 +41,30 @@ public static class DisplayScale
     }
 
     /// <summary>The active display source showing the main screen (adapter + source id).</summary>
-    static DeviceHeader? PrimarySource()
+    static DeviceHeader? PrimarySource() => PrimaryPath()?.Source;
+
+    /// <summary>
+    /// The main screen's own resolution (its preferred mode, as the panel reports it), whatever
+    /// Windows or a game drives it at; null if unknown. Not the biggest mode Windows lists: the
+    /// driver can add bigger virtual ones.
+    /// </summary>
+    public static (int Width, int Height)? NativeSize()
+    {
+        if (PrimaryPath()?.Target is not { } target) return null;
+        // DISPLAYCONFIG_TARGET_PREFERRED_MODE: header, width, height, then the timing (80 bytes in all).
+        var packet = new byte[80];
+        BitConverter.TryWriteBytes(packet.AsSpan(0), GetTargetPreferredMode);
+        BitConverter.TryWriteBytes(packet.AsSpan(4), packet.Length);
+        BitConverter.TryWriteBytes(packet.AsSpan(8), target.AdapterLow);
+        BitConverter.TryWriteBytes(packet.AsSpan(12), target.AdapterHigh);
+        BitConverter.TryWriteBytes(packet.AsSpan(16), target.Id);
+        if (DisplayConfigGetDeviceInfo(packet) != 0) return null;
+        int width = BitConverter.ToInt32(packet, 20), height = BitConverter.ToInt32(packet, 24);
+        return width > 0 && height > 0 ? (width, height) : null;
+    }
+
+    /// <summary>The active path showing the main screen: its source (what Windows draws) and target (the panel).</summary>
+    static (DeviceHeader Source, DeviceHeader Target)? PrimaryPath()
     {
         if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount) != 0 || pathCount == 0) return null;
         var paths = new byte[pathCount * PathSize];
@@ -49,20 +72,22 @@ public static class DisplayScale
         if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0) return null;
 
         string? primary = PrimaryDeviceName();
-        DeviceHeader? first = null;
+        (DeviceHeader, DeviceHeader)? first = null;
         for (int i = 0; i < pathCount; i++)
         {
-            // DISPLAYCONFIG_PATH_INFO starts with sourceInfo: adapter LUID (low, high), source id.
-            var source = new DeviceHeader
+            // DISPLAYCONFIG_PATH_INFO: sourceInfo (adapter LUID low, high, source id, mode index,
+            // flags), then targetInfo (adapter LUID low, high, target id, ...).
+            DeviceHeader At(int offset) => new()
             {
-                AdapterLow = BitConverter.ToUInt32(paths, i * PathSize),
-                AdapterHigh = BitConverter.ToInt32(paths, i * PathSize + 4),
-                Id = BitConverter.ToUInt32(paths, i * PathSize + 8),
+                AdapterLow = BitConverter.ToUInt32(paths, i * PathSize + offset),
+                AdapterHigh = BitConverter.ToInt32(paths, i * PathSize + offset + 4),
+                Id = BitConverter.ToUInt32(paths, i * PathSize + offset + 8),
             };
-            first ??= source;
-            var name = new SourceName { Header = Header(GetSourceName, Marshal.SizeOf<SourceName>(), source) };
+            var path = (At(0), At(20));
+            first ??= path;
+            var name = new SourceName { Header = Header(GetSourceName, Marshal.SizeOf<SourceName>(), path.Item1) };
             if (primary != null && DisplayConfigGetDeviceInfo(ref name) == 0
-                && string.Equals(name.GdiName, primary, StringComparison.OrdinalIgnoreCase)) return source;
+                && string.Equals(name.GdiName, primary, StringComparison.OrdinalIgnoreCase)) return path;
         }
         return first;
     }
@@ -75,7 +100,7 @@ public static class DisplayScale
 
     static DeviceHeader Header(int type, int size, DeviceHeader source) => source with { Type = type, Size = size };
 
-    const int GetSourceName = 1, GetDpiScale = -3, SetDpiScale = -4;
+    const int GetSourceName = 1, GetTargetPreferredMode = 3, GetDpiScale = -3, SetDpiScale = -4;
     const uint QDC_ONLY_ACTIVE_PATHS = 2, MONITOR_DEFAULTTOPRIMARY = 1;
     const int PathSize = 72, ModeSize = 64;  // DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_MODE_INFO
 
@@ -118,6 +143,7 @@ public static class DisplayScale
     [DllImport("user32.dll")] static extern int DisplayConfigGetDeviceInfo(ref GetScale info);
     [DllImport("user32.dll")] static extern int DisplayConfigGetDeviceInfo(ref SourceName info);
     [DllImport("user32.dll")] static extern int DisplayConfigSetDeviceInfo(ref SetScale info);
+    [DllImport("user32.dll")] static extern int DisplayConfigGetDeviceInfo([In, Out] byte[] packet);
     [DllImport("user32.dll")] static extern IntPtr MonitorFromPoint(Point pt, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfoEx info);
 }

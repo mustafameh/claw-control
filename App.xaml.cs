@@ -89,7 +89,8 @@ public partial class App : Application
         _hardware = new HardwareWorker();
         _performance = new PerformanceService(_hardware, new MsiAcpi(), _settings);
 
-        _perfOverlay = new OverlayController(_settings, () => _tdpText);
+        // The graphics service is made below; the overlay asks it only once running.
+        _perfOverlay = new OverlayController(_settings, () => _tdpText, () => _graphics?.Live());
         _brightness = new Brightness();
         _audio = new AudioService();
         var media = new MediaService();

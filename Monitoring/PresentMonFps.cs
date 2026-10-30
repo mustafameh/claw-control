@@ -9,24 +9,42 @@ namespace ClawControl.Monitoring;
 /// FPS from Intel PresentMon, which reads Windows' frame-presentation events (ETW) at system level,
 /// so it works for every graphics API and needs nothing inside the game. PresentMon runs only while
 /// this object exists, inside a job object that closes it if Claw Control ever exits unexpectedly.
-/// Display, input and GPU tracking are switched off to keep its overhead to the minimum FPS needs.
+/// Input and GPU tracking are switched off to keep its overhead to the minimum needed.
+///
+/// With <c>frameTypes</c> it also follows each frame to the screen and says who made it: the game,
+/// or AMD's frame generation (AFMF), which the driver adds between the game's frames. That's how
+/// the overlay knows frame generation is really at work, not just switched on. Without it,
+/// display tracking stays off (the cheapest way to count FPS).
 /// </summary>
 public sealed class PresentMonFps : IDisposable
 {
     const string SessionName = "ClawControl";
     // Frames from the last second make up the FPS; an app that sent nothing for this long shows 0.
-    const double WindowSeconds = 1.0;
+    const double WindowMs = 1000;
     const long IdleMs = 2000;
+    /// <summary>Generated frames are counted over this long (PresentMon hands out rows in bursts).</summary>
+    const long GeneratedWindowMs = 2000;
 
     readonly object _gate = new();
     readonly Dictionary<int, FrameWindow> _frames = new();
+    readonly HashSet<string> _typesSeen = new();
     readonly Process _process;
     readonly IntPtr _job;
 
     public static string ExePath => Path.Combine(AppContext.BaseDirectory, "Tools", "PresentMon.exe");
 
-    public PresentMonFps()
+    /// <summary>Started with frame types (AFMF) tracked.</summary>
+    public bool FrameTypes { get; }
+
+    /// <summary>PresentMon's output didn't look as expected (e.g. it refused an option): start one without frame types.</summary>
+    public bool Failed { get; private set; }
+
+    /// <summary>Frame types are in the output (the FrameType column).</summary>
+    public bool HasFrameTypes { get; private set; }
+
+    public PresentMonFps(bool frameTypes)
     {
+        FrameTypes = frameTypes;
         var info = new ProcessStartInfo(ExePath)
         {
             UseShellExecute = false,
@@ -34,13 +52,16 @@ public sealed class PresentMonFps : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        foreach (var arg in new[]
+        string[] mode = frameTypes
+            ? ["--v2_metrics", "--track_frame_type"]
+            : ["--v1_metrics", "--no_track_display"];
+        foreach (var arg in mode.Concat(new[]
         {
-            "--output_stdout", "--no_console_stats", "--v1_metrics",
-            "--no_track_display", "--no_track_input", "--no_track_gpu",
+            "--output_stdout", "--no_console_stats",
+            "--no_track_input", "--no_track_gpu",
             "--exclude", "dwm.exe", "--exclude", "ClawControl.exe",
             "--session_name", SessionName, "--stop_existing_session",
-        })
+        }))
             info.ArgumentList.Add(arg);
 
         _process = Process.Start(info) ?? throw new InvalidOperationException("PresentMon did not start");
@@ -49,10 +70,10 @@ public sealed class PresentMonFps : IDisposable
         _process.ErrorDataReceived += (_, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) Log.Info($"PresentMon: {e.Data}"); };
         _process.BeginErrorReadLine();
         new Thread(Read) { IsBackground = true, Name = "PresentMon reader", Priority = ThreadPriority.BelowNormal }.Start();
-        Log.Info("FPS counter started (PresentMon)");
+        Log.Info($"FPS counter started (PresentMon{(frameTypes ? ", with frame generation" : "")})");
     }
 
-    /// <summary>Frames per second of a process over the last second, 0 if it is not drawing, null if never seen.</summary>
+    /// <summary>Frames per second the app made over the last second, 0 if it is not drawing, null if never seen.</summary>
     public double? FpsFor(int processId)
     {
         lock (_gate)
@@ -63,36 +84,56 @@ public sealed class PresentMonFps : IDisposable
         }
     }
 
+    /// <summary>Frames per second AMD's frame generation added to the app's (0 if none), or
+    /// null if frame types aren't known (not tracked, or the app was never seen).</summary>
+    public double? GeneratedFor(int processId)
+    {
+        lock (_gate)
+        {
+            if (!HasFrameTypes || !_frames.TryGetValue(processId, out var window)) return null;
+            return window.Generated(Environment.TickCount64);
+        }
+    }
+
     void Read()
     {
         try
         {
             var output = _process.StandardOutput;
             var header = output.ReadLine()?.Split(',');
-            if (header == null) return;
-            int pidColumn = Array.IndexOf(header, "ProcessID");
-            int timeColumn = Array.IndexOf(header, "TimeInSeconds");
-            int frameColumn = Array.IndexOf(header, "msBetweenPresents");
-            if (pidColumn < 0 || timeColumn < 0 || frameColumn < 0)
+            if (header == null)
             {
-                Log.Error($"Unexpected PresentMon output: {string.Join(",", header)}");
+                Failed = !_disposed;
                 return;
             }
-            int needed = Math.Max(pidColumn, Math.Max(timeColumn, frameColumn));
+            int Column(params string[] names) => names.Select(n => Array.FindIndex(header, h => h.Equals(n, StringComparison.OrdinalIgnoreCase))).FirstOrDefault(i => i >= 0, -1);
+            int pidColumn = Column("ProcessID");
+            int frameColumn = Column("msBetweenPresents");
+            int typeColumn = Column("FrameType");
+            if (pidColumn < 0 || frameColumn < 0)
+            {
+                Log.Error($"Unexpected PresentMon output: {string.Join(",", header)}");
+                Failed = true;
+                return;
+            }
+            HasFrameTypes = typeColumn >= 0;
+            int needed = Math.Max(pidColumn, Math.Max(frameColumn, typeColumn));
 
             string? line;
             while ((line = output.ReadLine()) != null)
             {
                 var parts = line.Split(',');
-                if (parts.Length <= needed
-                    || !int.TryParse(parts[pidColumn], out int pid)
-                    || !double.TryParse(parts[timeColumn], NumberStyles.Float, CultureInfo.InvariantCulture, out double time)
-                    || !double.TryParse(parts[frameColumn], NumberStyles.Float, CultureInfo.InvariantCulture, out double ms))
-                    continue;
+                if (parts.Length <= needed || !int.TryParse(parts[pidColumn], out int pid)) continue;
+                string? type = typeColumn >= 0 ? parts[typeColumn] : null;
+                bool generated = type != null && type.Contains("AFMF", StringComparison.OrdinalIgnoreCase);
+                bool hasMs = double.TryParse(parts[frameColumn], NumberStyles.Float, CultureInfo.InvariantCulture, out double ms);
                 lock (_gate)
                 {
+                    if (type != null && _typesSeen.Add(type)) Log.Info($"PresentMon frame type seen: {type}");
                     if (!_frames.TryGetValue(pid, out var window)) _frames[pid] = window = new FrameWindow();
-                    window.Add(time, ms);
+                    long now = Environment.TickCount64;
+                    if (generated) window.AddGenerated(now);
+                    else if (hasMs) window.Add(ms, now);
                 }
             }
         }
@@ -128,20 +169,40 @@ public sealed class PresentMonFps : IDisposable
 
     sealed class FrameWindow
     {
-        readonly Queue<(double Time, double Ms)> _recent = new();
+        readonly Queue<double> _recent = new();
+        readonly Queue<long> _generated = new();
         double _totalMs;
         public long LastArrivalMs { get; private set; }
 
-        public void Add(double time, double ms)
+        /// <summary>One of the app's own frames, <paramref name="ms"/> after its last one.</summary>
+        public void Add(double ms, long now)
         {
-            _recent.Enqueue((time, ms));
+            _recent.Enqueue(ms);
             _totalMs += ms;
-            while (_recent.Count > 1 && time - _recent.Peek().Time > WindowSeconds)
-                _totalMs -= _recent.Dequeue().Ms;
-            LastArrivalMs = Environment.TickCount64;
+            while (_recent.Count > 1 && _totalMs - _recent.Peek() >= WindowMs)
+                _totalMs -= _recent.Dequeue();
+            LastArrivalMs = now;
+        }
+
+        public void AddGenerated(long now)
+        {
+            _generated.Enqueue(now);
+            Forget(now);
+            LastArrivalMs = now;
         }
 
         public double? Fps => _totalMs > 0 ? _recent.Count * 1000 / _totalMs : null;
+
+        public double Generated(long now)
+        {
+            Forget(now);
+            return _generated.Count * 1000.0 / GeneratedWindowMs;
+        }
+
+        void Forget(long now)
+        {
+            while (_generated.Count > 0 && now - _generated.Peek() > GeneratedWindowMs) _generated.Dequeue();
+        }
     }
 
     // ---- Job object: Windows closes PresentMon when Claw Control's handle goes away ----
