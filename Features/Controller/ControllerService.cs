@@ -92,7 +92,15 @@ public sealed class ControllerService
     void KeepChosenMode(int mode)
     {
         if (_settings.ControllerOff || mode is not (1 or 2 or 4)) return;
-        int wanted = _panelOpen ? 1 : _userMode;
+        // Closed: MSI's own mode service puts back the mode it believes in a few seconds after
+        // the chip is switched, so fighting it only leaves the two out of step (the cursor gone
+        // while the panel says mouse). The mode the chip reports is the mode shown then.
+        if (!_panelOpen)
+        {
+            _userMode = mode;
+            return;
+        }
+        int wanted = 1;
         if (mode == wanted || _pendingMode != null) return;
         long now = Environment.TickCount64;
         _reverts.RemoveAll(t => now - t > 60_000);
@@ -153,12 +161,8 @@ public sealed class ControllerService
     /// changes nobody here asked for are put back: KeepChosenMode).</summary>
     void NoteChipMode()
     {
-        if (_modeNoted || _panelOpen || _pad.Mode is not (1 or 2 or 4)) return;
-        _modeNoted = true;
-        _userMode = _pad.Mode.Value;
+        if (!_panelOpen && !_xboxForPanel && _pad.Mode is 1 or 2 or 4) _userMode = _pad.Mode.Value;
     }
-
-    bool _modeNoted;
 
     /// <summary>
     /// The chip was in Desktop (mouse) mode when the panel opened and was put in Xbox mode for it.
