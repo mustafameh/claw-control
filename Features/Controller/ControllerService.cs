@@ -77,9 +77,39 @@ public sealed class ControllerService
         _pad.ModeReported += mode =>
         {
             if (mode is 1 or 2) _stickReassert.Change(600, Timeout.Infinite);
-            NoteChipMode();
+            KeepChosenMode(mode);
             Changed?.Invoke();
         };
+    }
+
+    /// <summary>
+    /// The chip switched to a mode nobody here asked for (MSI does this: its AI Engine switches
+    /// with the window in front, and it restores its own idea of the mode late). The mode chosen
+    /// in Claw Control wins: while the panel is open the chip goes back to Xbox mode (the panel
+    /// needs it), otherwise back to the chosen mode. At most a few times a minute, so it never
+    /// fights MSI in a loop.
+    /// </summary>
+    void KeepChosenMode(int mode)
+    {
+        if (_settings.ControllerOff || mode is not (1 or 2 or 4)) return;
+        int wanted = _panelOpen ? 1 : _userMode;
+        if (mode == wanted || _pendingMode != null) return;
+        long now = Environment.TickCount64;
+        _reverts.RemoveAll(t => now - t > 60_000);
+        if (_reverts.Count >= 3) return;
+        _reverts.Add(now);
+        if (_panelOpen) _xboxForPanel = true;
+        Log.Info($"Controller switched to mode {mode} by something else; back to {wanted}");
+        _ = Task.Delay(500).ContinueWith(_ => { if (_pad.Mode != wanted) _ = _pad.SwitchModeAsync(wanted); });
+    }
+
+    readonly List<long> _reverts = new();
+
+    /// <summary>Desktop-mode input arrived while the panel is open: the chip went to mouse mode, back to Xbox.</summary>
+    public void DesktopInputSeen()
+    {
+        if (!_panelOpen || _pad.Mode == 1) return;
+        KeepChosenMode(4);
     }
 
     public bool Ready => _pad.Profile != null;
@@ -119,10 +149,16 @@ public sealed class ControllerService
         }
     }
 
+    /// <summary>The chip's mode as first read is the mode in use until one is chosen here (later
+    /// changes nobody here asked for are put back: KeepChosenMode).</summary>
     void NoteChipMode()
     {
-        if (!_panelOpen && !_xboxForPanel && _pad.Mode is 1 or 2 or 4) _userMode = _pad.Mode.Value;
+        if (_modeNoted || _panelOpen || _pad.Mode is not (1 or 2 or 4)) return;
+        _modeNoted = true;
+        _userMode = _pad.Mode.Value;
     }
+
+    bool _modeNoted;
 
     /// <summary>
     /// The chip was in Desktop (mouse) mode when the panel opened and was put in Xbox mode for it.
@@ -149,7 +185,9 @@ public sealed class ControllerService
         _triggersLive = false;
         if (_settings.ControllerOff) _ = _pad.SetDisabledAsync(false);
         if (_settings.HideControllerFromGames) _ = _pad.SetOverlay(PanelMappingOverlay);
-        if (!_xboxForPanel && _pad.Mode == 4)
+        // The panel needs Xbox mode (Claw Control switches the chip itself; MSI's own request
+        // through its Command Center queued up and landed late when MSI was slow to answer).
+        if (!_xboxForPanel && _pad.Mode is 2 or 4)
         {
             _xboxForPanel = true;
             _ = _pad.SwitchModeAsync(1);
@@ -257,10 +295,10 @@ public sealed class ControllerService
         if (_panelOpen) return;
         var mode = _pendingMode;
         _pendingMode = null;
-        // Put to Xbox mode for the panel: back to the mouse unless another mode was picked.
+        // Put to Xbox mode for the panel: back to the chosen mode unless another was picked.
         if (_xboxForPanel)
         {
-            mode ??= _settings.ControllerOff ? PadMode.Off : PadMode.Desktop;
+            mode ??= CurrentMode;
             _xboxForPanel = false;
         }
         if (mode == null)

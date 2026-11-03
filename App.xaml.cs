@@ -37,7 +37,6 @@ public partial class App : Application
     OverlayWindow? _overlay;
     GamepadInput? _gamepad;
     DesktopInputBlocker? _inputBlocker;
-    MsiControllerMode? _controllerMode;
     MsiButtonWatcher? _buttons;
     MsiButtonTakeover? _takeover;
     OverlayController? _perfOverlay;
@@ -139,10 +138,10 @@ public partial class App : Application
         _gamepad.Command += command => Dispatcher.BeginInvoke(() => _overlay.Handle(command, InputSource.Gamepad));
         _inputBlocker = new DesktopInputBlocker();
         _inputBlocker.Command += (command, source) => Dispatcher.BeginInvoke(() => _overlay.Handle(command, source));
-        // While the panel is open the controller is a gamepad, whatever MSI mode it was in, so
-        // every button works the same. The blocker covers the moment before the switch lands.
-        _controllerMode = new MsiControllerMode();
-        _inputBlocker.DesktopInputSeen += _controllerMode.Reassert;
+        // While the panel is open the controller is a gamepad, whatever mode it was in, so every
+        // button works the same (ControllerService switches the chip itself). The blocker covers
+        // the moment before the switch lands.
+        _inputBlocker.DesktopInputSeen += _controller.DesktopInputSeen;
         _overlay.IsVisibleChanged += (_, _) =>
         {
             bool open = _overlay.IsVisible;
@@ -150,8 +149,7 @@ public partial class App : Application
             if (open)
             {
                 _inputBlocker.Open();
-                _controller.PanelOpened();  // turns an "off" controller on while the panel is open
-                _controllerMode.Enter();
+                _controller.PanelOpened();  // Xbox mode for the panel; turns an "off" controller on
             }
             else
             {
@@ -159,11 +157,7 @@ public partial class App : Application
                 // B closes the panel while it's still held: hand the controller back only once
                 // it's let go, or the game behind would get that B too.
                 var letGo = _inputBlocker.WhenReleasedAsync(TimeSpan.FromSeconds(3));
-                _controller.PanelClosed(letGo);  // the real button mapping back, then a mode chosen on the Controller tab
-                letGo.ContinueWith(_ => Dispatcher.BeginInvoke(() =>
-                {
-                    if (!_overlay.IsVisible) _controllerMode.Leave();
-                }));
+                _controller.PanelClosed(letGo);  // the real button mapping back, then the chosen mode
             }
         };
 
@@ -267,8 +261,6 @@ public partial class App : Application
         _inputBlocker?.Close();
         // Quitting can happen with the panel open: put the controller back first.
         _controller?.EndPanelMapping(TimeSpan.FromSeconds(2));
-        _controllerMode?.Leave();
-        _controllerMode?.WaitForPending(TimeSpan.FromSeconds(3));
         _perfOverlay?.Shutdown(TimeSpan.FromSeconds(3));
         _capture?.Shutdown(TimeSpan.FromSeconds(5));  // a recording running: finish its file
         _gamepad?.Dispose();

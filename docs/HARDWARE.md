@@ -118,16 +118,18 @@ installed. Other Claw models use different firmware and are not supported.
   LB / RB send nothing, the stick moves the cursor, XInput reports nothing.
 - `\\.\pipe\Command_Center_XInput` (plain UTF-8 text request and reply, open ACL; what MSI's Game
   Bar widget uses): `xinputmode_set` → gamepad mode, `gamebarosd_disappear` → back to before.
-  `Hardware/MsiControllerMode` sends these when the panel opens and closes. Also
-  `embeddedcontroller_get` ("On"), `controlmode_get`, `model_get` ("MS-1T8K"). A busy pipe
-  answers "access denied": space requests out.
+  Also `embeddedcontroller_get` ("On"), `controlmode_get`, `model_get` ("MS-1T8K"). A busy pipe
+  answers "access denied". **No longer used** (0.1.11): when Command Center was slow every
+  request timed out, they queued up (30 s of them after one opening) and the late ones made
+  MSI switch the mode back 10-15 s after a mode was chosen. `xinputmode_set` also did nothing
+  when the chip was put in Desktop mode by Claw Control (MSI still thinks it's a gamepad).
 - MSI's AI Engine (`MSI_Center_M_Server_UserScenario`) sends `GoToDesktopMode` 0.2-0.5 s after any
-  non-game window comes to the front, so gamepad mode is requested again at 0.5 / 1 / 2 s and
-  whenever Desktop-mode input shows up while the panel is open.
+  non-game window comes to the front.
+- Claw Control switches the chip itself (`ControllerService`): Xbox mode (36) while the panel is
+  open (from PlayStation or Desktop), the chosen mode after it closes. A mode change it didn't
+  ask for (MSI's) is put back to the chosen mode (Xbox while the panel is open), at most 3 times
+  a minute so it never fights MSI in a loop.
 - MSI's component pipes `MCXNPS_*` are encrypted and signature-checked: not used.
-- `xinputmode_set` does nothing when the chip was put in Desktop mode by Claw Control (MSI
-  still thinks it's a gamepad), and in Desktop mode LB / RB send nothing: then the chip is
-  switched to Xbox mode (36) while the panel is open and back to Desktop after.
 
 ## Screen capture
 

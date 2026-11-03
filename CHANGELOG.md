@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.11 (2026-11-03)
+
+- **Fixed:** the controller switched back from mouse to Xbox mode (or the other way) 10-15 s
+  after you picked a mode. Claw Control no longer asks MSI's Command Center to switch modes
+  (its late answers caused it); it switches the controller itself and puts your chosen mode back
+  if something else changes it.
+
 ## 0.1.10 (2026-10-30)
 
 - **Fixed:** opening the panel over a full-screen game took its focus, so many games left full
