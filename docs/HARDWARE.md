@@ -123,8 +123,16 @@ installed. Other Claw models use different firmware and are not supported.
   request timed out, they queued up (30 s of them after one opening) and the late ones made
   MSI switch the mode back 10-15 s after a mode was chosen. `xinputmode_set` also did nothing
   when the chip was put in Desktop mode by Claw Control (MSI still thinks it's a gamepad).
-- MSI's AI Engine (`MSI_Center_M_Server_UserScenario`) sends `GoToDesktopMode` 0.2-0.5 s after any
-  non-game window comes to the front.
+- **MSI's AI Engine** (`API_AiEngine.dll`, `Win_Event.setAI_Engine`) re-applies "the mode the
+  user chose" whenever the window in front changes, and on a timer while it thinks a game runs
+  (`GamingEvent` = 5): `HKLM\SOFTWARE\WOW6432Node\MSI\MSI Center M\OsdEditor\ControlModeUserSet`,
+  `XInput` → `GoToXInputMode`, `Desktop` → `GoToDesktopMode`, anything else → nothing. Only
+  while `User Scenario\AutoSwitchMode` = 1 (MSI's "switch mode automatically", on by default) and
+  `OsdEditor\DeviceStatusUserSet` isn't 0. MSI's Control Mode screen writes `ControlModeUserSet`
+  when the user switches; a mode switched on the chip without it was undone within seconds.
+  Claw Control writes it too (`ControllerService.TellMsi`): `XInput` while the panel is open,
+  the chosen mode (`Desktop` / `XInput`, `DInput` for PlayStation) after. Found 2026-11-03 by
+  decompiling MSI's API_AiEngine, API_ControlMode, UC_ControlMode and UC_GameLibrary.
 - Claw Control switches the chip itself (`ControllerService`): Xbox mode (36) while the panel is
   open (from PlayStation or Desktop), the chosen mode after it closes. A mode change it didn't
   ask for (MSI's) is put back to the chosen mode (Xbox while the panel is open), at most 3 times

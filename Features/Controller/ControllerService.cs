@@ -189,6 +189,9 @@ public sealed class ControllerService
         _triggersLive = false;
         if (_settings.ControllerOff) _ = _pad.SetDisabledAsync(false);
         if (_settings.HideControllerFromGames) _ = _pad.SetOverlay(PanelMappingOverlay);
+        // The panel opening changes the window in front, and MSI's AI Engine then re-applies
+        // its stored mode: let that be the panel's Xbox mode until it closes.
+        TellMsi(PadMode.Xbox);
         // The panel needs Xbox mode (Claw Control switches the chip itself; MSI's own request
         // through its Command Center queued up and landed late when MSI was slow to answer).
         if (!_xboxForPanel && _pad.Mode is 2 or 4)
@@ -308,7 +311,11 @@ public sealed class ControllerService
         if (mode == null)
         {
             if (_settings.ControllerOff) await _pad.SetDisabledAsync(true);
-            else await SettleMode();
+            else
+            {
+                TellMsi(CurrentMode);  // the panel's "XInput" off again
+                await SettleMode();
+            }
             return;
         }
         _settings.ControllerOff = mode == PadMode.Off;
@@ -321,9 +328,34 @@ public sealed class ControllerService
         {
             int raw = mode switch { PadMode.PlayStation => 2, PadMode.Desktop => 4, _ => 1 };
             _userMode = raw;
+            TellMsi(mode.Value);  // before the switch, so MSI's AI Engine re-applies this one
             if (_pad.Mode != raw) await _pad.SwitchModeAsync(raw);
         }
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// MSI's AI Engine (API_AiEngine) puts back "the mode the user chose" whenever the window in
+    /// front changes (and on a timer while it thinks a game runs): the value MSI's own Control
+    /// Mode screen writes, OsdEditor\ControlModeUserSet ("XInput" / "Desktop"). A mode switched
+    /// on the chip without it was undone within seconds, so Claw Control writes it too; any
+    /// other value ("DInput", PlayStation mode) is left alone by the AI Engine.
+    /// </summary>
+    static void TellMsi(PadMode mode)
+    {
+        string? value = mode switch { PadMode.Desktop => "Desktop", PadMode.Xbox => "XInput", PadMode.PlayStation => "DInput", _ => null };
+        if (value == null) return;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\MSI\MSI Center M\OsdEditor", writable: true);
+            if (key == null || key.GetValue("ControlModeUserSet") as string == value) return;  // no MSI Center M, or already so
+            key.SetValue("ControlModeUserSet", value, Microsoft.Win32.RegistryValueKind.String);
+            Log.Detail($"MSI's chosen controller mode: {value}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Telling MSI the chosen controller mode", ex);
+        }
     }
 
     // ---- Vibration ----
