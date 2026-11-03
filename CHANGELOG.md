@@ -2,10 +2,11 @@
 
 ## 0.1.11 (2026-11-03)
 
-- **Fixed:** the controller switched back from mouse to Xbox mode (or the other way) 10-15 s
-  after you picked a mode. Claw Control no longer asks MSI's Command Center to switch modes
-  (its late answers caused it); it switches the controller itself and puts your chosen mode back
-  if something else changes it.
+- **Fixed:** the controller switched back from mouse to Xbox mode (or the other way) a few
+  seconds after you picked a mode. MSI's AI Engine puts back the mode it thinks you chose
+  whenever the window in front changes, and Claw Control never told it; now it does, the way
+  MSI's own Control Mode screen does. Claw Control also no longer asks MSI's Command Center to
+  switch modes (its late answers piled up) and switches the controller itself.
 
 ## 0.1.10 (2026-10-30)
 
