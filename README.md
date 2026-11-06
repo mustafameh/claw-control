@@ -34,11 +34,12 @@ almost nothing while it's closed.
 
 | | | |
 |:---:|:---:|:---:|
-| <img src="docs/media/screens/quick.jpg" width="250"><br>**Quick tab**<br>Volume, brightness, Wi-Fi, Bluetooth, controller mode, now playing | <img src="docs/media/screens/power.jpg" width="250"><br>**Power modes**<br>Super Battery, Balanced, Performance, or your own watts | <img src="docs/media/screens/overlay.jpg" width="250"><br>**Performance overlay**<br>FPS, power, temps, CPU, GPU, RAM… in any corner |
-| <img src="docs/media/screens/sound.jpg" width="250"><br>**Sound**<br>Output device and per-app volume | <img src="docs/media/screens/wifi.jpg" width="250"><br>**Wi-Fi and Bluetooth**<br>Switch them, connect networks and headphones | <img src="docs/media/screens/graphics.jpg" width="250"><br>**Graphics tab**<br>FPS limit, frame gen, upscaling, sharpening, FreeSync |
-| <img src="docs/media/screens/resolution.jpg" width="250"><br>**Display**<br>Resolution, refresh rate, Windows scaling, graphics memory | <img src="docs/media/screens/controller.jpg" width="250"><br>**Controller tab**<br>Xbox, PlayStation, mouse or off; lights, rumble, gyro | <img src="docs/media/screens/lights.jpg" width="250"><br>**Lights**<br>Colours, effects, speed, brightness |
-| <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout | <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**App switcher**<br>Live previews, switch or end apps, close background apps |
-| <img src="docs/media/screens/edit.jpg" width="250"><br>**Arrange the Quick tab**<br>Move and hide tiles; panel size and side | <img src="docs/media/screens/capture.jpg" width="250"><br>**Screenshot and record**<br>With game sound, on the GPU's video encoder; size, quality, folder | <img src="docs/media/screens/side.jpg" width="250"><br>**Left or right**<br>The panel and app switcher on either side, 80-130 % |
+| <img src="docs/media/screens/quick.jpg" width="250"><br>**Quick tab**<br>Volume, brightness, Wi-Fi, Bluetooth, controller mode, power modes | <img src="docs/media/screens/nowplaying.jpg" width="250"><br>**Now playing**<br>Cover glow, bars that move with the music, seek line and times | <img src="docs/media/screens/library.jpg" width="250"><br>**Library**<br>Your games as covers, last played first, and pinned apps |
+| <img src="docs/media/screens/power.jpg" width="250"><br>**Power modes**<br>Super Battery, Balanced, Performance, or your own watts | <img src="docs/media/screens/overlay.jpg" width="250"><br>**Performance overlay**<br>FPS, power, temps, CPU, GPU, RAM… in any corner | <img src="docs/media/screens/sound.jpg" width="250"><br>**Sound**<br>Output device and per-app volume |
+| <img src="docs/media/screens/wifi.jpg" width="250"><br>**Wi-Fi and Bluetooth**<br>Switch them, connect networks and headphones | <img src="docs/media/screens/graphics.jpg" width="250"><br>**Graphics tab**<br>FPS limit, frame gen, upscaling, sharpening, FreeSync | <img src="docs/media/screens/resolution.jpg" width="250"><br>**Display**<br>Resolution, refresh rate, Windows scaling, graphics memory |
+| <img src="docs/media/screens/controller.jpg" width="250"><br>**Controller tab**<br>Xbox, PlayStation, mouse or off; lights, rumble, gyro | <img src="docs/media/screens/lights.jpg" width="250"><br>**Lights**<br>Colours, effects, speed, brightness | <img src="docs/media/screens/buttons.jpg" width="250"><br>**Buttons**<br>Remap any button, turbo, Nintendo layout |
+| <img src="docs/media/screens/triggers.jpg" width="250"><br>**Triggers and sticks**<br>Ranges, quick trigger, dead zones, live view | <img src="docs/media/screens/apps.jpg" width="250"><br>**App switcher**<br>Live previews, switch or end apps, close background apps | <img src="docs/media/screens/edit.jpg" width="250"><br>**Arrange the Quick tab**<br>Move and hide tiles; panel size and side; Library on / off |
+| <img src="docs/media/screens/capture.jpg" width="250"><br>**Screenshot and record**<br>With game sound, on the GPU's video encoder; size, quality, folder | <img src="docs/media/screens/side.jpg" width="250"><br>**Left or right**<br>The panel and app switcher on either side, 80-130 % | |
 
 - **Instant:** the panel is built once at startup and only shown and hidden.
 - **Controller-first:** D-pad to move, **A** select, **B** back, **LB / RB** tabs,
@@ -50,12 +51,20 @@ almost nothing while it's closed.
 - **Same size everywhere:** the panel keeps its size and stays pinned to its side at any
   resolution or Windows scaling. **Edit** (bottom of the Quick tab) moves and hides tiles, makes
   the whole panel bigger or smaller and puts it on the left or right.
+- **Library:** your games as covers, last played first: start one, or jump back to the one
+  that's running. Games are only added when you ask: **Find games on this Claw** reads your
+  Steam, Epic and Xbox folders (no sign-in) and lets you tick the ones you want.
+- **Now playing:** Spotify, YouTube in a browser or any app in Windows' media controls. The
+  cover's colours glow behind it and faint bars move with the music (they listen only while the
+  panel shows a playing track). Select it to open a big cover, a seek line with the time gone
+  and left, and big previous / play / next.
 - **Screenshots and recordings** of the whole screen, full-screen games included, with the
   game's sound, encoded by the Claw's own video encoder. Pick the size, quality and folder.
 - **An honest overlay:** besides FPS, watts and temperatures it shows whether frame generation
   really adds frames and whether RSR really upscales right now, not just whether they're on.
 - **Light on battery:** with the panel closed it uses about 0.3 % of one CPU core and polls
-  nothing. No telemetry: its only connection is one look at GitHub a day for a new version.
+  nothing. No telemetry: it connects only to look at GitHub once a day for a new version, and
+  to fetch the cover of an Epic game you add to the Library.
 
 ## Download and install
 

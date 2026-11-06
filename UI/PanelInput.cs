@@ -53,6 +53,18 @@ public static class PanelInput
     public static string? GetActionHint(DependencyObject element) => (string?)element.GetValue(ActionHintProperty);
 
     /// <summary>
+    /// Left / right from this control only reach controls level with it, never one diagonally
+    /// in another row; past the row's end they go to the app switcher (if it's on that side) or
+    /// nowhere. The now-playing buttons use it (right from Next went down to a power mode).
+    /// </summary>
+    public static readonly DependencyProperty StayInRowProperty =
+        DependencyProperty.RegisterAttached("StayInRow", typeof(bool), typeof(PanelInput), new PropertyMetadata(false));
+
+    public static void SetStayInRow(DependencyObject element, bool stay) => element.SetValue(StayInRowProperty, stay);
+
+    public static bool GetStayInRow(DependencyObject element) => (bool)element.GetValue(StayInRowProperty);
+
+    /// <summary>
     /// Leaves this part of the page out of D-pad navigation (and taps), though it stays shown:
     /// the Quick tab's tiles while it's being edited, when each tile is one selectable block.
     /// </summary>

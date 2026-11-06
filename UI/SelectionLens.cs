@@ -148,10 +148,11 @@ sealed class SelectionLens
                 _snap = true;
                 return false;
         }
-        if (_snap)
+        if (_snap || Motion.Reduced)
         {
             (_x, _y, _w, _h, _r) = (rect.X, rect.Y, rect.Width, rect.Height, radius);
             _vx = _vy = _vw = _vh = _vr = 0;
+            if (Motion.Reduced) (_press, _pressV) = (1, 0);
             _snap = false;
         }
         for (double left = dt; left > 1e-6; left -= 1 / 120.0)

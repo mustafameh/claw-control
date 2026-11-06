@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using ClawControl.Core;
 using ClawControl.Input;
 using ClawControl.Monitoring;
@@ -9,11 +10,44 @@ using ClawControl.UI;
 namespace ClawControl.Features.Overlay;
 
 /// <summary>
-/// Performance overlay controls, shown at the bottom of the Performance page: on/off, one of six
-/// screen positions, and any combination of the numbers to show. Blue means on/chosen, so the
-/// buttons carry no extra state text.
+/// The Quick tab's Overlay tile, like the Wi-Fi one: A turns the performance overlay on or off
+/// (blue while on), its › opens the Overlay screen.
 /// </summary>
-public sealed class OverlaySection : StackPanel
+public sealed class OverlayTile
+{
+    static readonly Brush OnBrush = Ui.Hex("#FF0A84FF");
+
+    readonly Settings _settings;
+    readonly OverlayController _overlay;
+    readonly QuickTile _tile;
+
+    public FrameworkElement View => _tile.View;
+
+    public OverlayTile(Settings settings, OverlayController overlay, Action openScreen)
+    {
+        _settings = settings;
+        _overlay = overlay;
+        _tile = new QuickTile("", "Overlay", Toggle, openScreen);
+        Refresh();
+    }
+
+    void Toggle()
+    {
+        _settings.OverlayEnabled = !_settings.OverlayEnabled;
+        _settings.SaveSoon();
+        _overlay.Apply();
+        Refresh();
+    }
+
+    public void Refresh() => _tile.Show("Overlay", _settings.OverlayEnabled ? OnBrush : null);
+}
+
+/// <summary>
+/// The Overlay screen (the tile's ›): on/off, one of six screen positions, any combination of
+/// the numbers to show, and their size. Blue means on/chosen, so the buttons carry no extra
+/// state text.
+/// </summary>
+public sealed class OverlayScreen : UserControl, IPage
 {
     // Where each position's spot sits on the mini screen: row, column.
     static readonly (string Id, int Row, int Column)[] Positions =
@@ -24,61 +58,31 @@ public sealed class OverlaySection : StackPanel
 
     readonly Settings _settings;
     readonly OverlayController _overlay;
+    readonly Action _changed;
     readonly Button _toggle;
     readonly TextBlock _toggleHint;
-    readonly StackPanel _options = new();
     readonly Dictionary<string, Button> _positions = new();
     readonly Dictionary<string, Button> _items = new();
 
-    public OverlaySection(Settings settings, OverlayController overlay)
+    public string Id => "overlay";
+    public string Title => "Overlay";
+    public FrameworkElement View => this;
+
+    /// <param name="changed">On / off changed here (the Quick tab's tile follows).</param>
+    public OverlayScreen(Settings settings, OverlayController overlay, Action changed)
     {
         _settings = settings;
         _overlay = overlay;
+        _changed = changed;
 
-        // One tile: the switch row, and (while on) where it goes and what it shows.
-        var tile = new StackPanel();
-        Children.Add(new Border
-        {
-            Background = (System.Windows.Media.Brush)FindResource("CardBrush"),
-            CornerRadius = new CornerRadius(16),
-            Padding = new Thickness(2),
-            Margin = new Thickness(4, 10, 4, 4),
-            Child = tile,
-        });
+        _toggle = Ui.Switch("Overlay", () => Change(() => _settings.OverlayEnabled = !_settings.OverlayEnabled));
         // Only says something when the overlay is on but has nothing to show.
-        _toggleHint = new TextBlock
-        {
-            Text = "Pick at least one number below",
-            Style = (Style)FindResource("CardDetail"),
-        };
-        var title = new StackPanel { Orientation = Orientation.Horizontal };
-        title.Children.Add(new TextBlock
-        {
-            Text = "",
-            FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-            FontSize = 17,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0),
-        });
-        title.Children.Add(new TextBlock { Text = "Overlay", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        _toggle = new Button
-        {
-            Style = (Style)FindResource("SwitchButton"),
-            Background = System.Windows.Media.Brushes.Transparent,
-            Margin = new Thickness(0),
-            Content = Stack(title, _toggleHint),
-        };
-        _toggle.Click += (_, _) => Change(() => _settings.OverlayEnabled = !_settings.OverlayEnabled);
-        tile.Children.Add(_toggle);
-        // Position and number choices only show while the overlay is on, to keep D-pad scrolling short.
-        _options.Margin = new Thickness(4, 0, 4, 4);
-        tile.Children.Add(_options);
+        _toggleHint = new TextBlock { Text = "Pick at least one number", Style = Ui.Style("CardDetail"), Margin = new Thickness(12, 0, 12, 4) };
 
         // Mini screen on the left (tap where the overlay goes), numbers on the right.
-        var layout = new Grid();
+        var layout = new Grid { Margin = new Thickness(4, 4, 4, 0) };
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(136) });
         layout.ColumnDefinitions.Add(new ColumnDefinition());
-        _options.Children.Add(layout);
 
         var spots = new Grid();
         for (int i = 0; i < 2; i++) spots.RowDefinitions.Add(new RowDefinition());
@@ -87,7 +91,7 @@ public sealed class OverlaySection : StackPanel
         {
             var spot = new Button
             {
-                Style = (Style)FindResource("SpotButton"),
+                Style = Ui.Style("SpotButton"),
                 VerticalAlignment = row == 0 ? VerticalAlignment.Top : VerticalAlignment.Bottom,
                 HorizontalAlignment = column switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right },
             };
@@ -99,7 +103,7 @@ public sealed class OverlaySection : StackPanel
         }
         layout.Children.Add(new Border
         {
-            BorderBrush = (System.Windows.Media.Brush)FindResource("TrackBrush"),
+            BorderBrush = Ui.Brush("TrackBrush"),
             BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(8),
             Margin = new Thickness(3, 3, 6, 3),
@@ -107,7 +111,7 @@ public sealed class OverlaySection : StackPanel
             Child = spots,
         });
 
-        // Numbers in pages of 6 (3 × 2), so the tile is two rows tall: D-pad right past the last
+        // Numbers in pages of 9 (3 × 3), so the card is three rows tall: D-pad right past the last
         // column flips to the next page, left from the first column flips back; dots show the page.
         var pages = new Grid();
         Grid.SetColumn(pages, 1);
@@ -133,19 +137,18 @@ public sealed class OverlaySection : StackPanel
         }
         for (int p = 0; p < _pages.Count; p++) SteerPage(p);
 
-        var dots = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 2, 0, 0) };
+        var dots = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 2, 0, 4) };
         for (int p = 0; p < _pages.Count; p++)
         {
             int target = p;
             // A tap target around each dot (touch); not in the D-pad's way.
             var dot = new Border { Height = 6, CornerRadius = new CornerRadius(3), Margin = new Thickness(3, 0, 3, 0) };
-            var hit = new Border { Background = System.Windows.Media.Brushes.Transparent, Padding = new Thickness(4, 6, 4, 6), Child = dot };
+            var hit = new Border { Background = Brushes.Transparent, Padding = new Thickness(4, 6, 4, 6), Child = dot };
             hit.MouseLeftButtonUp += (_, _) => ShowPage(target);
             hit.TouchUp += (_, e) => { ShowPage(target); e.Handled = true; };
             _dots.Add(dot);
             dots.Children.Add(hit);
         }
-        _options.Children.Add(dots);
 
         // How big the numbers are on the screen (80-200 %).
         var size = Ui.Slider("", "Size", 200, 10);
@@ -158,16 +161,23 @@ public sealed class OverlaySection : StackPanel
             size.ValueText = $"{(int)Math.Round(e.NewValue)}%";
             Change(() => _settings.OverlaySize = (int)Math.Round(e.NewValue));
         };
-        _options.Children.Add(size);
+
+        var where = new Border
+        {
+            Background = Ui.Brush("CardBrush"), CornerRadius = new CornerRadius(10), Padding = new Thickness(2), Margin = new Thickness(4, 6, 4, 4),
+            Child = Ui.Stack(layout, dots),
+        };
+        Content = Ui.Stack(_toggle, _toggleHint, where, size);
 
         ShowPage(0);
         Refresh();
     }
 
-    const int Columns = 3, PageSize = 6;
+    public void OnShown() => Refresh();
+
+    const int Columns = 3, PageSize = 9;
     readonly List<UniformGrid> _pages = new();
     readonly List<Border> _dots = new();
-    int _page;
 
     /// <summary>Right from a page's last column goes to the next page, left from its first to the previous.</summary>
     void SteerPage(int p)
@@ -195,12 +205,11 @@ public sealed class OverlaySection : StackPanel
 
     void ShowPage(int page)
     {
-        _page = page;
         for (int p = 0; p < _pages.Count; p++)
         {
             _pages[p].Visibility = p == page ? Visibility.Visible : Visibility.Hidden;
             _dots[p].Width = p == page ? 16 : 6;
-            _dots[p].Background = (System.Windows.Media.Brush)FindResource(p == page ? "BarFillBrush" : "TrackBrush");
+            _dots[p].Background = Ui.Brush(p == page ? "BarFillBrush" : "TrackBrush");
         }
     }
 
@@ -210,31 +219,24 @@ public sealed class OverlaySection : StackPanel
         _settings.SaveSoon();
         _overlay.Apply();
         Refresh();
+        _changed();
     }
 
     void Refresh()
     {
         bool on = _settings.OverlayEnabled;
-        _toggle.Tag = on ? "selected" : null;
+        Ui.SetOn(_toggle, on);
         _toggleHint.Visibility = on && _settings.OverlayItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        _options.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         foreach (var (id, button) in _positions)
             button.Tag = id == _settings.OverlayPosition ? "selected" : null;
         foreach (var (id, button) in _items)
             button.Tag = _settings.OverlayItems.Contains(id) ? "selected" : null;
     }
 
-    Button Chip(string label) => new()
+    static Button Chip(string label) => new()
     {
-        Style = (Style)FindResource("ChipButton"),
+        Style = Ui.Style("ChipButton"),
         MinHeight = 34,
         Content = new TextBlock { Text = label, TextTrimming = TextTrimming.CharacterEllipsis },
     };
-
-    static StackPanel Stack(params UIElement[] children)
-    {
-        var panel = new StackPanel();
-        foreach (var child in children) panel.Children.Add(child);
-        return panel;
-    }
 }

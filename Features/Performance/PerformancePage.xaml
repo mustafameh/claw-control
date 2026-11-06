@@ -3,29 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="clr-namespace:ClawControl.UI">
     <StackPanel x:Name="Root">
-        <!-- Now playing: only while an app has a media session (Spotify, a YouTube tab...). -->
-        <Border x:Name="MediaStrip" Background="{StaticResource CardBrush}" CornerRadius="14"
-                Margin="4,0,4,5" Padding="8,6" Visibility="Collapsed">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="PreviousButton" Style="{StaticResource IconButton}" Content="&#xE892;" Click="Previous_Click"/>
-                    <Button x:Name="PlayPauseButton" Style="{StaticResource IconButton}" FontSize="20" Content="&#xE768;" Click="PlayPause_Click"/>
-                    <Button x:Name="NextButton" Style="{StaticResource IconButton}" Content="&#xE893;" Click="Next_Click"/>
-                </StackPanel>
-                <Border x:Name="MediaArt" Width="44" Height="44" CornerRadius="9" Background="{StaticResource TrackBrush}">
-                    <TextBlock x:Name="MediaArtFallback" Text="&#xE8D6;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                               FontSize="18" Foreground="{StaticResource SubtleTextBrush}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <StackPanel VerticalAlignment="Center" Margin="10,0,6,0">
-                    <TextBlock x:Name="MediaTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="MediaArtist" Style="{StaticResource CardDetail}" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <!-- Controller mode circle, Wi-Fi and Bluetooth tiles (Features/Network/QuickRow). -->
-        <ContentControl x:Name="TopRow" Focusable="False" Margin="0,0,0,4"/>
+        <!-- Now playing (NowPlayingTile, built in code) goes first; only while an app has a media session. -->
 
         <!-- Left/right moves volume 2% a step; A (or the arrow) opens the Sound screen. -->
         <ui:FillSlider x:Name="VolumeSlider" Glyph="&#xE995;" ShowMore="True" Minimum="0" Maximum="100" SmallChange="2"

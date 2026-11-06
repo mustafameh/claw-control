@@ -34,6 +34,8 @@ public static class SpatialNavigator
         }
 
         var from = Bounds(current, root);
+        bool sideways = direction is NavCommand.Left or NavCommand.Right;
+        bool stayInRow = sideways && PanelInput.GetStayInRow(current);
         FrameworkElement? best = null;
         double bestScore = double.MaxValue;
         foreach (var candidate in controls)
@@ -49,6 +51,7 @@ public static class SpatialNavigator
                 _ => dx,
             };
             if (centreAlong <= 1) continue;
+            if (stayInRow && Gap(from.Top, from.Bottom, to.Top, to.Bottom) > 0) continue;
 
             // Measure edge to edge, not centre to centre: a wide control (like the overlay switch)
             // directly above a narrow one counts as straight ahead, even though its centre is off

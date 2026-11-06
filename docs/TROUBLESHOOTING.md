@@ -160,9 +160,10 @@ button and blocking the controller from reaching the game behind the panel need 
 these rights once, at install, through a scheduled task, so there's no prompt when it starts.
 
 **Does it collect data or connect to the internet?**
-No data is collected. Its only connection: once a day, when the panel opens, it asks GitHub
-whether a new version is out (and downloads it only if you press Update now). Settings and the
-log stay on the device.
+No data is collected. Once a day, when the panel opens, it asks GitHub whether a new version is
+out (and downloads it only if you press Update now). When you add an Epic game to the Library,
+its cover picture is downloaded once from Epic's image server. Settings, covers and the log stay
+on the device.
 
 **How much battery does it use?**
 With the panel closed, about 0.3 % of one CPU core: it polls nothing and waits for the MSI

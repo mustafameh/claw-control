@@ -202,7 +202,19 @@ installed. Other Claw models use different firmware and are not supported.
   `KSCATEGORY_AUDIO` filters. Battery: PnP property `{104EA319-...} 2` by container id.
 - Wi-Fi / Bluetooth state: `Windows.Devices.Radios`, `NetworkInformation`, `WiFiAdapter`,
   `DeviceInformation`; watchers run only while the panel is open.
-- Now playing: `GlobalSystemMediaTransportControlsSessionManager`.
+- Now playing: `GlobalSystemMediaTransportControlsSessionManager`, listened to only while the
+  Quick tab shows. Position: `GetTimelineProperties()` gives `Position` as of `LastUpdatedTime`
+  (apps report it now and then), so while playing it's counted on from that time; length is
+  `EndTime - StartTime`, none for live streams. Seeking: `TryChangePlaybackPositionAsync` (ticks
+  from `StartTime`), only when `Controls.IsPlaybackPositionEnabled`. Covers: browsers often send
+  the cover after the title (Brave in the background first sends its own icon), so the thumbnail
+  is read again on every `MediaPropertiesChanged` (same bytes are skipped) and 1.5 s / 4 s after
+  a new track. The cover is decoded once at 192 px, plus a 24 px box-blurred copy for the tile's
+  glow and its main colour for the bars.
+- Now-playing bars: WASAPI loopback (`NAudio` `WasapiLoopbackCapture`) on the default output, a
+  2048-sample Hann-windowed FFT every 1024 samples, 30 log-spaced bands 45 Hz-14 kHz (+3 dB per
+  octave tilt, levels relative to a slowly falling peak). Runs only while the panel shows a
+  playing track; nothing is stored, and loopback never touches the microphone.
 - Sleep / hibernate: `SetSuspendState`; restart / shut down: `shutdown.exe`. Ending an app:
   `WM_CLOSE` to its windows, then the whole process tree after 4 s (at once if frozen,
   `IsHungAppWindow`); Explorer is never ended.

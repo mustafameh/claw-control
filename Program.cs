@@ -15,6 +15,14 @@ public static class Program
         if (args.Contains("--background") && (AlreadyRunning() || QuitFlag.IsSetThisBoot()))
             return;
 
+        // Numbers, dates and parsing stay culture-free (as with invariant globalization), but
+        // Windows' language data is there: WPF needs it for fonts with names in many languages
+        // (the Library's poster face; without it the font cache fails at startup).
+        System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+        System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
         var app = new App();
         app.InitializeComponent();
         app.Run();

@@ -45,6 +45,12 @@ public static class Scaling
         return rect.Left <= screen.Left && rect.Top <= screen.Top && rect.Right >= screen.Right && rect.Bottom >= screen.Bottom;
     }
 
+    /// <summary>A game holds the screen in exclusive full screen (Windows' own report): no other
+    /// window can draw over it until the game steps out (it does when it loses the focus).</summary>
+    public static bool ExclusiveFullScreen() => SHQueryUserNotificationState(out int state) == 0 && state == RunningD3DFullScreen;
+
+    const int RunningD3DFullScreen = 3;  // QUNS_RUNNING_D3D_FULL_SCREEN
+
     [StructLayout(LayoutKind.Sequential)] struct Rect32 { public int Left, Top, Right, Bottom; }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -58,4 +64,5 @@ public static class Scaling
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr window, out Rect32 rect);
     [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr window, int flags);
     [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+    [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
 }

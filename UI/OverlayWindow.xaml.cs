@@ -23,7 +23,10 @@ namespace ClawControl.UI;
 /// </summary>
 public partial class OverlayWindow : Window
 {
-    readonly IReadOnlyList<IPage> _pages;
+    /// <summary>The pages with a tab now (all of them less any turned off, like the Library).</summary>
+    readonly List<IPage> _pages;
+    readonly IReadOnlyList<IPage> _allPages;
+    readonly HashSet<IPage> _hiddenPages = new();
     readonly Settings _settings;
     readonly Dictionary<IPage, FrameworkElement> _lastFocus = new();
     readonly DispatcherTimer _clock;
@@ -40,10 +43,14 @@ public partial class OverlayWindow : Window
     public OverlayWindow(IReadOnlyList<IPage> pages, Settings settings, Connectivity net)
     {
         InitializeComponent();
-        _pages = pages;
+        Card.Background = Glass.Tint;
+        _allPages = pages;
+        _pages = pages.ToList();
         _settings = settings;
         _net = net;
-        _pageIndex = Math.Max(0, pages.ToList().FindIndex(p => p.Id == settings.LastPage));
+        // The first opening after Claw Control starts (after a reboot, say) is always on the Quick
+        // tab; after that the panel opens on the page it was closed on.
+        _pageIndex = HomeIndex;
 
         _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _clock.Tick += (_, _) => UpdateHeader();
@@ -74,6 +81,7 @@ public partial class OverlayWindow : Window
         // The glass drop follows the selected control (focus passing through the window itself,
         // as during a page swap, leaves it where it is until the next control).
         _lens = new SelectionLens(LensLayer, PageScroller, Root);
+        ScrollFade.Attach(PageScroller, 22);
         GotKeyboardFocus += (_, e) => FollowSelection(e.NewFocus);
         // The D-pad selection is the window's logical focus, which also moves while Windows keeps
         // another app active (no keyboard focus events then).
@@ -120,13 +128,13 @@ public partial class OverlayWindow : Window
 
     /// <summary>Panel width in design units (ScreenFit): the same share of the screen at any
     /// resolution and Windows scaling.</summary>
-    const double PanelWidth = 420;
+    const double PanelWidth = 460;
 
     /// <summary>Physical pixels per design unit, set each time the panel is placed.</summary>
     double _unitPx = 1.5;
 
     /// <summary>Panel corner radius; inner tiles use smaller, matching curves.</summary>
-    const double CornerRadiusDip = 26;
+    const double CornerRadiusDip = 30;
 
     readonly GlassBackdrop _glass;
     readonly SelectionLens _lens;
@@ -305,6 +313,11 @@ public partial class OverlayWindow : Window
     {
         StopHiding();  // opened again while still closing
         var timing = System.Diagnostics.Stopwatch.StartNew();
+        Motion.Refresh();
+        // How bright the picture behind the card is (the glass deepens over bright ones): from the
+        // background while the panel gets ready.
+        var cardArea = CardArea();
+        var behind = Task.Run(() => Glass.Brightness(cardArea));
         double queued = PressedAt != 0 ? System.Diagnostics.Stopwatch.GetElapsedTime(PressedAt).TotalMilliseconds : -1;
         PressedAt = 0;
         // Before the panel takes focus: the window in front (the switcher's tile). Saying whose it
@@ -334,12 +347,20 @@ public partial class OverlayWindow : Window
         double switcher = timing.Elapsed.TotalMilliseconds;
         // A full-screen game keeps the focus: many leave full screen when they lose it (back to
         // the desktop's resolution, which also ends RSR). The panel doesn't need it: the
-        // controller reaches it through the input blocker either way.
-        _gameKeepsFocus = _frontApp != null && Monitoring.Scaling.FillsScreen(frontWindow);  // not the desktop
+        // controller reaches it through the input blocker either way. Only a game in exclusive
+        // full screen hides every window over it: the panel takes the focus so the game steps
+        // out, and gives it back on closing.
+        bool fullScreen = _frontApp != null && Monitoring.Scaling.FillsScreen(frontWindow);  // not the desktop
+        _giveBackTo = fullScreen && Monitoring.Scaling.ExclusiveFullScreen() ? frontWindow : IntPtr.Zero;
+        _gameKeepsFocus = fullScreen && _giveBackTo == IntPtr.Zero;
         // Never activated while it's over the game (not by a focus call either), until it closes.
         NativeWindow.SetNoActivate(new WindowInteropHelper(this).Handle, _gameKeepsFocus);
         if (_gameKeepsFocus) CheckGameKeptFocus(frontWindow);
+        else if (_giveBackTo != IntPtr.Zero) Log.Detail($"Opened over {_frontApp!.Name} in exclusive full screen: the panel takes the focus");
         else if (_frontApp != null) Log.Detail($"Opened over {_frontApp.Name} (not full screen): the panel takes the focus");
+        // Usually ready by now; else the tint follows a frame later.
+        if (behind.Wait(4)) Glass.Apply(behind.Result);
+        else behind.ContinueWith(t => Dispatcher.BeginInvoke(() => Glass.Apply(t.Result)));
         ShowActivated = !_gameKeepsFocus;
         Show();
         ShowActivated = true;
@@ -369,6 +390,17 @@ public partial class OverlayWindow : Window
             Dispatcher.BeginInvoke(SaveSnapshot, DispatcherPriority.ApplicationIdle);
     }
 
+    /// <summary>Where the card will be on the screen (physical pixels: its column, edge gap to edge
+    /// gap), for a look at what's behind it before it opens.</summary>
+    Int32Rect CardArea()
+    {
+        var screen = ScreenFit.Primary();
+        double unit = screen.UnitPx * Math.Clamp(_settings.PanelSize, MinPanelSize, MaxPanelSize) / 100.0;
+        double gap = ScreenGap * screen.UnitPx, width = Math.Round(PanelWidth * unit);
+        double x = _settings.PanelSide == "Left" ? screen.Work.X + gap : screen.Work.X + screen.Work.Width - width - gap;
+        return new Int32Rect((int)x, (int)(screen.Work.Y + gap), (int)width, (int)Math.Max(1, screen.Work.Height - 2 * gap));
+    }
+
     /// <summary>
     /// Floats in the top-right corner, as tall as its content (scrolls if that's taller). Worked
     /// out in the screen's real pixels and scaled to a fixed share of the screen, so a new
@@ -395,16 +427,16 @@ public partial class OverlayWindow : Window
         // screen's edges, where the shadow is simply cut off) by the card's margin.
         // Left of that, the app switcher, its tile level with the card's first row.
         double gap = ScreenGap * screen.UnitPx, width = Math.Round(PanelWidth * _unitPx);
-        // WPF caps a window at about the screen's height (SM_CYMAXTRACK). The window is the card
-        // plus its shadow room; when the card can reach the taskbar that would cut the card short,
-        // so the room below it shrinks instead (the shadow there is past the screen's edge anyway).
+        // Windows caps a window at about the screen's height (SM_CYMAXTRACK), and the window is
+        // the card plus its shadow room, so a card that would make it taller stops (and scrolls)
+        // a little sooner. The room below is never cut: cutting it (before 0.1.12's release) left
+        // the shadow ending in a straight line under the card, a faint box over bright pictures.
         double cardMax = screen.Work.Height - 2 * gap;
-        double over = cardMax + (CardRoom.Top + CardRoom.Bottom) * _unitPx - (GetSystemMetrics(SM_CYMAXTRACK) - 4);
-        SetBottomRoom(Math.Max(0, CardRoom.Bottom - Math.Max(0, over) / _unitPx));
+        double windowMax = GetSystemMetrics(SM_CYMAXTRACK) - 4;
         var room = Card.Margin;
         double switcher = Switcher != null ? Math.Round((AppSwitcher.SwitcherWidth - SwitcherOverlap) * _unitPx) : 0;
         Width = ScreenFit.ToWindowUnits(this, width + Math.Round((room.Left + room.Right) * _unitPx) + switcher);
-        MaxHeight = ScreenFit.ToWindowUnits(this, cardMax + (room.Top + room.Bottom) * _unitPx);
+        MaxHeight = ScreenFit.ToWindowUnits(this, Math.Min(cardMax + (room.Top + room.Bottom) * _unitPx, windowMax));
         Top = ScreenFit.ToWindowUnits(this, screen.Work.Y + gap - room.Top * _unitPx);
         Left = ScreenFit.ToWindowUnits(this, left
             ? screen.Work.X + gap - Math.Round(room.Left * _unitPx)
@@ -422,20 +454,6 @@ public partial class OverlayWindow : Window
             Switcher.SetUnit(_unitPx);
             Switcher.SetAnchor(left ? SwitcherOverlap - room.Right : AppSwitcher.SwitcherWidth - SwitcherOverlap + room.Left);
         }
-    }
-
-    /// <summary>The card's margin in the XAML: the room around it for its shadow.</summary>
-    static readonly Thickness CardRoom = new(44, 32, 44, 66);
-
-    /// <summary>The room below the card (and its shadow layers along with it), in design units.</summary>
-    void SetBottomRoom(double bottom)
-    {
-        double cut = CardRoom.Bottom - bottom;
-        if (Math.Abs(Card.Margin.Bottom - bottom) < 0.01) return;
-        Card.Margin = CardRoom with { Bottom = bottom };
-        // The shadow layers keep their places relative to the card (XAML: 52 and 66 below).
-        if (ShadowLayer.Children[0] is FrameworkElement soft) soft.Margin = soft.Margin with { Bottom = Math.Max(0, 52 - cut) };
-        if (ShadowLayer.Children[1] is FrameworkElement halo) halo.Margin = halo.Margin with { Bottom = bottom };
     }
 
     const int SM_CYMAXTRACK = 60;
@@ -560,17 +578,38 @@ public partial class OverlayWindow : Window
         }
         _parentSubs.Clear();
         CurrentPage.OnHidden();
-        _settings.LastPage = CurrentPage.Id;
         _settings.SaveSoon();
+        GiveBackFocus();
+    }
+
+    /// <summary>The game the panel took the focus from (exclusive full screen), for closing.</summary>
+    IntPtr _giveBackTo;
+    bool _gaveBack;
+
+    /// <summary>Closing over a game that stepped out of exclusive full screen: back to it, unless
+    /// the focus already went on (an app picked in the switcher, a tap on another window).</summary>
+    void GiveBackFocus()
+    {
+        var game = _giveBackTo;
+        _giveBackTo = IntPtr.Zero;
+        _gaveBack = false;
+        var front = RunningApps.FrontWindow();
+        if (game == IntPtr.Zero || (front != new WindowInteropHelper(this).Handle && front != _glass.Handle)) return;
+        RunningApps.SwitchTo(game);
+        _gaveBack = true;
     }
 
     /// <summary>Closes the panel and waits until it's off the screen (before a screenshot or a
     /// recording starts, so it isn't in it).</summary>
     public async Task HideAndWaitAsync()
     {
+        bool open = IsVisible && !_hiding;
         HidePanel();
+        bool gaveBack = open && _gaveBack;
         for (int i = 0; i < 40 && (IsVisible || _hiding); i++) await Task.Delay(15);
-        await Task.Delay(80);  // the compositor's next frame no longer has it
+        // A game given the focus back takes a moment to fill the screen again.
+        for (int i = 0; gaveBack && i < 40 && !Monitoring.Scaling.ExclusiveFullScreen(); i++) await Task.Delay(50);
+        await Task.Delay(gaveBack ? 300 : 80);  // the compositor's next frame no longer has it
     }
 
     /// <summary>The app that was in front when the panel opened (captures are named after it).</summary>
@@ -671,6 +710,40 @@ public partial class OverlayWindow : Window
     {
         _parentSubs.Clear();  // the ones underneath were hidden when covered
         CloseSubPage(restoreFocus);
+    }
+
+    /// <summary>Back to the page from every screen (e.g. after games were added).</summary>
+    public void CloseScreens()
+    {
+        if (IsVisible && _subPage != null) CloseAllSubPages();
+        ShowFooter();
+    }
+
+    /// <summary>Gives a page its tab or takes it away (the Library, from Edit); it keeps its place
+    /// among the tabs. Taking away the page that's shown goes to the first one.</summary>
+    public void SetPageShown(IPage page, bool shown)
+    {
+        if (shown ? !_hiddenPages.Remove(page) : !_hiddenPages.Add(page)) return;
+        var current = CurrentPage;
+        _pages.Clear();
+        _pages.AddRange(_allPages.Where(p => !_hiddenPages.Contains(p)));
+        int index = _pages.IndexOf(current);
+        if (index >= 0) _pageIndex = index;
+        else if (IsVisible) SwitchPageAway(current);
+        else _pageIndex = HomeIndex;
+        _tabsFor = (null, -1);
+        BuildTabs();
+    }
+
+    /// <summary>The Quick tab (the panel's home, in the middle of the tabs), else the first.</summary>
+    int HomeIndex => Math.Max(0, _pages.FindIndex(p => p.Id == "performance"));
+
+    void SwitchPageAway(IPage gone)
+    {
+        CloseAllSubPages(restoreFocus: false);
+        gone.OnHidden();
+        ShowPage(HomeIndex);
+        RestoreFocus();
     }
 
     public void Handle(NavCommand command, InputSource source)
@@ -850,12 +923,21 @@ public partial class OverlayWindow : Window
             tab.Click += (_, _) => { if (target != _pageIndex) SwitchPage(target, "tap"); };
             Tabs.Children.Add(tab);
         }
+        // Each tab as wide as its name needs, the room left shared out in the same proportion.
+        Tabs.ColumnDefinitions.Clear();
+        foreach (var tab in Tabs.Children.OfType<Button>())
+        {
+            tab.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Tabs.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1, tab.DesiredSize.Width), GridUnitType.Star) });
+            Grid.SetColumn(tab, Tabs.ColumnDefinitions.Count - 1);
+        }
         Dispatcher.BeginInvoke(() => MoveTabPill(animate: IsVisible), DispatcherPriority.Loaded);
     }
 
     /// <summary>Slides the tab pill under the selected tab (or stretches it under "‹ Title").</summary>
     void MoveTabPill(bool animate)
     {
+        animate &= !Motion.Reduced;
         var tab = Tabs.Children.OfType<Button>().FirstOrDefault(b => Equals(b.Tag, "selected"));
         if (tab == null || tab.ActualWidth <= 0) return;
         double x = tab.TranslatePoint(new Point(0, 0), TabRow).X, width = tab.ActualWidth;
@@ -1054,6 +1136,13 @@ public partial class OverlayWindow : Window
                     ShowLensOn(null, quick);
                     SaveImage(Path.Combine(dir, $"{++count:00} {quick.Title} - Edit.png"), background);
                     quick.ShowEditingForCapture(false);
+                    // And with the now-playing tile open (only while something plays).
+                    if (quick.ShowNowPlayingForCapture(true) is { } play)
+                    {
+                        ShowLensOn(play, quick);
+                        SaveImage(Path.Combine(dir, $"{++count:00} {quick.Title} - Now playing.png"), background);
+                        quick.ShowNowPlayingForCapture(false);
+                    }
                 }
                 CurrentPage.OnHidden();
             }
@@ -1069,7 +1158,7 @@ public partial class OverlayWindow : Window
                     foreach (var (side, size) in new[] { ("Right", 100), ("Left", 100), ("Right", 130) })
                     {
                         (_settings.PanelSide, _settings.PanelSize) = (side, size);
-                        ShowPage(0);
+                        ShowPage(HomeIndex);
                         PlaceInCorner();
                         Switcher.ShowForCapture(front, apps);
                         UpdateLayout();

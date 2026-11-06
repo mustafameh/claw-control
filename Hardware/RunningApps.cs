@@ -158,20 +158,26 @@ public static class RunningApps
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
 
     /// <summary>Brings the app's window to the front (restoring it if minimised).</summary>
-    public static void SwitchTo(RunningApp app)
+    public static void SwitchTo(RunningApp app) => SwitchTo(app.Window);
+
+    public static void SwitchTo(IntPtr window)
     {
-        if (app.Window == IntPtr.Zero || !IsWindow(app.Window)) return;
-        if (IsIconic(app.Window)) ShowWindow(app.Window, SwRestore);
-        if (SetForegroundWindow(app.Window) && GetForegroundWindow() == app.Window) return;
+        if (window == IntPtr.Zero || !IsWindow(window)) return;
+        if (IsIconic(window)) ShowWindow(window, SwRestore);
+        if (SetForegroundWindow(window) && GetForegroundWindow() == window) return;
         // The panel isn't the foreground window over a full-screen game, and Windows only lets
         // that one hand the foreground on: a marked Alt tap (our own input) lifts the lock.
         var marker = (UIntPtr)Input.DesktopInputBlocker.OwnInputMarker;
         keybd_event(0x12, 0, 0, marker);
         keybd_event(0x12, 0, 2, marker);
-        SetForegroundWindow(app.Window);
+        SetForegroundWindow(window);
     }
 
     [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+    /// <summary>A Start menu app's (shell id) or a program file's icon, about <paramref name="size"/> pixels.</summary>
+    public static ImageSource? ShellIcon(string? appId, string? path, int size = 96) =>
+        LargeIcon(appId, path, IntPtr.Zero, appId ?? path ?? "", size);
 
     /// <summary>A sharp icon of about <paramref name="size"/> pixels (the shell's big icons), or the small one.</summary>
     static ImageSource? LargeIcon(string? appId, string? path, IntPtr window, string name, int size)

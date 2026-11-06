@@ -20,25 +20,26 @@
          outside it (ShadowLayer is clipped to the card's outside; the card is see-through).
          Blurred once and kept as a bitmap, so it costs nothing while the panel animates. -->
     <Grid x:Name="ShadowLayer" IsHitTestVisible="False">
-        <Border Margin="44,46,44,52" CornerRadius="26" Background="#66000000">
+        <Border Margin="44,46,44,52" CornerRadius="30" Background="#66000000">
             <Border.Effect><BlurEffect Radius="48" RenderingBias="Performance"/></Border.Effect>
             <Border.CacheMode><BitmapCache/></Border.CacheMode>
         </Border>
-        <Border Margin="44,32,44,66" CornerRadius="26" Background="#29000000">
+        <Border Margin="44,32,44,66" CornerRadius="30" Background="#29000000">
             <Border.Effect><BlurEffect Radius="6" RenderingBias="Performance"/></Border.Effect>
             <Border.CacheMode><BitmapCache/></Border.CacheMode>
         </Border>
     </Grid>
-    <Border x:Name="Card" Margin="44,32,44,66" Background="{StaticResource PanelBrush}" CornerRadius="26"
+    <!-- Background: Glass.Tint, set in code (it changes, so it can't come from the resources). -->
+    <Border x:Name="Card" Margin="44,32,44,66" CornerRadius="30"
             BorderThickness="0.67" BorderBrush="{StaticResource GlassRimBrush}">
         <Grid>
-        <Border CornerRadius="26" Background="{StaticResource PanelSheenBrush}" IsHitTestVisible="False"/>
+        <Border CornerRadius="30" Background="{StaticResource PanelSheenBrush}" IsHitTestVisible="False"/>
         <!-- Thickness of the glass: a faint lit band just inside the rim, and a soft glow fading inward. -->
-        <Border CornerRadius="25" BorderThickness="2" BorderBrush="{StaticResource PanelBandBrush}" IsHitTestVisible="False"/>
-        <Border CornerRadius="25" BorderThickness="3" BorderBrush="#08FFFFFF" IsHitTestVisible="False">
-            <Border CornerRadius="22" BorderThickness="3" BorderBrush="#05FFFFFF">
-                <Border CornerRadius="19" BorderThickness="3" BorderBrush="#03FFFFFF">
-                    <Border CornerRadius="16" BorderThickness="3" BorderBrush="#02FFFFFF"/>
+        <Border CornerRadius="29" BorderThickness="2" BorderBrush="{StaticResource PanelBandBrush}" IsHitTestVisible="False"/>
+        <Border CornerRadius="29" BorderThickness="3" BorderBrush="#08FFFFFF" IsHitTestVisible="False">
+            <Border CornerRadius="26" BorderThickness="3" BorderBrush="#05FFFFFF">
+                <Border CornerRadius="23" BorderThickness="3" BorderBrush="#03FFFFFF">
+                    <Border CornerRadius="20" BorderThickness="3" BorderBrush="#02FFFFFF"/>
                 </Border>
             </Border>
         </Border>
@@ -120,14 +121,14 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource BumperHint}"><TextBlock Text="LB"/></Border>
-                <Border Grid.Column="1" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="3" Margin="8,0">
+                <Border Grid.Column="1" Background="{StaticResource CardBrush}" CornerRadius="14" Padding="3" Margin="8,0">
                     <Grid x:Name="TabRow">
                         <!-- The selected tab's pill; slides to the new tab (MoveTabPill). -->
                         <Border x:Name="TabPill" HorizontalAlignment="Left" Background="{StaticResource CardHoverBrush}"
-                                CornerRadius="12" IsHitTestVisible="False" Width="0">
+                                CornerRadius="11" IsHitTestVisible="False" Width="0">
                             <Border.RenderTransform><TranslateTransform x:Name="TabPillMove"/></Border.RenderTransform>
                         </Border>
-                        <UniformGrid x:Name="Tabs" Rows="1"/>
+                        <Grid x:Name="Tabs"/>
                     </Grid>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource BumperHint}"><TextBlock Text="RB"/></Border>
@@ -143,7 +144,7 @@
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
-                            <Border Style="{StaticResource BumperHint}"><TextBlock Text="Y"/></Border>
+                            <Border Style="{StaticResource FaceHint}"><TextBlock Text="Y"/></Border>
                             <TextBlock Text="&#xE7E8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
                                        Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -151,12 +152,12 @@
                 </Button.Template>
             </Button>
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,4,0">
-                <Border Style="{StaticResource BumperHint}"><TextBlock Text="A"/></Border>
+                <Border Style="{StaticResource FaceHint}"><TextBlock Text="A"/></Border>
                 <TextBlock x:Name="AcceptHint" Text="Select" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,16,0" VerticalAlignment="Center"/>
                 <!-- X only does something in the app switcher (ends an app; outside it X does nothing, so a stray press can't end one). -->
-                <Border x:Name="ActionKey" Style="{StaticResource BumperHint}" Visibility="Collapsed"><TextBlock Text="X"/></Border>
+                <Border x:Name="ActionKey" Style="{StaticResource FaceHint}" Visibility="Collapsed"><TextBlock Text="X"/></Border>
                 <TextBlock x:Name="ActionHint" Text="End" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,16,0" VerticalAlignment="Center" Visibility="Collapsed"/>
-                <Border Style="{StaticResource BumperHint}"><TextBlock Text="B"/></Border>
+                <Border Style="{StaticResource FaceHint}"><TextBlock Text="B"/></Border>
                 <TextBlock x:Name="BackHint" Text="Close" Foreground="{StaticResource SubtleTextBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
 

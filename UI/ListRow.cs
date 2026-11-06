@@ -90,7 +90,7 @@ public sealed class ListRow
         }
         return new Border
         {
-            Background = Ui.Brush("CardBrush"), CornerRadius = new CornerRadius(16),
+            Background = Ui.Brush("CardBrush"), CornerRadius = new CornerRadius(10),
             Padding = new Thickness(2), Margin = new Thickness(4, 6, 4, 4), Child = stack,
         };
     }

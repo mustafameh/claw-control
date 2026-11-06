@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.12 (2026-11-06)
+
+- **Now playing, redone:** the cover's colours glow behind the tile and faint bars in the
+  cover's colour move with the sound. Compact it shows the cover, title and time, with previous
+  / play-pause (a ring shows how far the track is) / next. Select it and it opens: big cover,
+  artist and app, a seek line with the time gone and left (**left / right** jump 10 s, or drag
+  it), big previous / play / next. Works with Spotify, browsers (YouTube…) and any app in
+  Windows' media controls; seeking where the app allows it. The bars listen to the sound only
+  while the panel shows a playing track; nothing is recorded.
+- **Fixed:** after Next in a browser in the background (Brave), the tile could keep showing the
+  browser's icon instead of the new cover until you switched to the browser.
+- **Fixed:** a faint square box under the panel's bottom corners over bright pictures (its
+  shadow was cut off in a straight line).
+- **Button hints** look like the buttons: A / B / X / Y in circles, LB / RB in capsules.
+- **Fixed:** the panel didn't show over games in exclusive full screen (Crash Bandicoot N. Sane
+  Trilogy, for one): since 0.1.10 it left the game the focus, and such a game hides every window
+  over it. Over those games the panel takes the focus again (the game steps out of full screen
+  while it's open) and closing it puts you back in the game. Borderless full-screen games keep
+  the focus as before.
+- **App switcher:** Close background apps is now a dark glass pill with a red ✕ and bigger text,
+  readable over any picture (over a white page the old text all but disappeared).
+- **Library tab:** pinned apps and your games as covers (Steam's art; Epic covers downloaded once
+  from Epic's image server when you add the game) with the name in a poster font, last played first;
+  "Playing" on a running game (A goes back to it) and "Starting…" until a game opens. Games are
+  only added when you ask: **Find games on this Claw** reads your Steam, Epic and Xbox folders (no
+  sign-in) and lists them unticked for you to pick; **Installed apps** adds any app from the
+  Start menu as a game (games with their own installer); **Add a program** adds any
+  `.exe`. Turn the tab off with Edit on the Quick tab.
+- **Tabs:** Graphics · Library · Quick · Controller (Quick in the middle); the panel is a little
+  wider so every tab name fits. The first opening after Claw Control starts (after a reboot) is
+  always on the Quick tab; after that it opens where you left it.
+- **Closer to Apple's Liquid Glass:** the glass deepens over bright pictures so text stays
+  readable; lists fade softly at an edge with more to scroll instead of being cut off; corners
+  nest inside the panel's (a slightly rounder panel, tighter inner corners); Windows'
+  "Animation effects" off turns the motion off (Reduce Motion).
+- **Overlay screen:** three rows of numbers per page.
+- **Quick tab:** the mode circle, Wi-Fi, Bluetooth, Screenshot, Record and Overlay are separate
+  tiles that move on their own in Edit (left / right past a neighbour, up / down to another
+  row). The overlay is a half-width tile like Wi-Fi: A turns it on or off, › opens its settings.
+
 ## 0.1.11 (2026-11-03)
 
 - **Fixed:** the controller switched back from mouse to Xbox mode (or the other way) a few

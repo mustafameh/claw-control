@@ -9,12 +9,13 @@ using ClawControl.UI;
 namespace ClawControl.Features.Network;
 
 /// <summary>
-/// The Quick tab's top row: one circle that flips the controller between Xbox and mouse
-/// (Desktop) mode, then Wi-Fi and Bluetooth tiles. A on a tile turns that radio on or off; its ›
-/// opens the list (networks / paired devices). A connected tile lights up and shows the network
-/// or device name (and the device's battery); the icons say the rest.
+/// The Quick tab's mode circle, which flips the controller between Xbox and mouse (Desktop)
+/// mode, and the Wi-Fi and Bluetooth tiles: three tiles the user can move apart (QuickTiles). A
+/// on a tile turns that radio on or off; its › opens the list (networks / paired devices). A
+/// connected tile lights up and shows the network or device name (and the device's battery); the
+/// icons say the rest.
 /// </summary>
-public sealed class QuickRow : UserControl
+public sealed class QuickRow
 {
     static readonly Brush ConnectedBrush = Ui.Hex("#FF0A84FF");
 
@@ -24,6 +25,8 @@ public sealed class QuickRow : UserControl
 
     /// <summary>The mode circle (Xbox / mouse): where the Quick tab opens.</summary>
     public FrameworkElement Mode => _mode;
+    public FrameworkElement Wifi => _wifi.View;
+    public FrameworkElement Bluetooth => _bluetooth.View;
     readonly Tile _wifi, _bluetooth;
 
     public QuickRow(ControllerService pad, Connectivity net, IPage wifiScreen, IPage bluetoothScreen, Action<IPage> openSubPage)
@@ -35,19 +38,8 @@ public sealed class QuickRow : UserControl
         _wifi = new Tile("", () => _ = _net.SetRadio(wifi: true, on: _net.Last.WiFi == LinkState.Off), () => openSubPage(wifiScreen));
         _bluetooth = new Tile("", () => _ = _net.SetRadio(wifi: false, on: _net.Last.Bluetooth == LinkState.Off), () => openSubPage(bluetoothScreen));
 
-        var grid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(62) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.Children.Add(_mode);
-        Grid.SetColumn(_wifi.View, 1);
-        grid.Children.Add(_wifi.View);
-        Grid.SetColumn(_bluetooth.View, 2);
-        grid.Children.Add(_bluetooth.View);
-        Content = grid;
-
-        _pad.Changed += () => Dispatcher.BeginInvoke(Refresh);
-        _net.Changed += () => Dispatcher.BeginInvoke(Refresh);
+        _pad.Changed += () => _mode.Dispatcher.BeginInvoke(Refresh);
+        _net.Changed += () => _mode.Dispatcher.BeginInvoke(Refresh);
         Refresh();
     }
 
@@ -107,7 +99,7 @@ public sealed class QuickRow : UserControl
             DockPanel.SetDock(more, Dock.Right);
             tile.Children.Add(more);
             tile.Children.Add(main);
-            View = new Border { CornerRadius = new CornerRadius(16), Margin = new Thickness(3), Child = tile };
+            View = new Border { CornerRadius = new CornerRadius(11), Margin = new Thickness(3), Child = tile };
         }
 
         /// <summary>bars ≥ 0: Wi-Fi signal (bright bars over a faint full icon).</summary>

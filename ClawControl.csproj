@@ -11,8 +11,8 @@
     <AssemblyName>ClawControl</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>ClawControl.Program</StartupObject>
-    <Version>0.1.11</Version>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.1.12</Version>
+    <InvariantGlobalization>false</InvariantGlobalization>
     <!-- AMD's driver settings (Hardware/Adlx.cs) are called through function pointers. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

@@ -24,21 +24,22 @@ public partial class PerformancePage : UserControl, IPage
     public string Title => "Quick";
     public FrameworkElement View => this;
 
-    /// <summary>The panel opens on the volume slider; press up for the music controls.</summary>
-    /// <summary>Opens on the mode circle (Xbox / mouse), or the volume bar without the top row.</summary>
-    public FrameworkElement DefaultFocus => (TopRow.Content as QuickRow)?.Mode ?? VolumeSlider;
+    /// <summary>Opens on the mode circle (Xbox / mouse), or the volume bar when that's hidden.</summary>
+    public FrameworkElement DefaultFocus => _tiles.Shown("mode") ?? VolumeSlider;
 
     /// <summary>A on the volume slider (or tapping its arrow) asks for the Sound screen.</summary>
     public event Action? OpenSoundRequested;
 
     readonly QuickTiles _tiles;
+    readonly NowPlayingTile _nowPlaying;
 
     public PerformancePage(PerformanceService perf, Brightness brightness, AudioService audio, MediaService media, Core.Settings settings)
     {
         InitializeComponent();
         // Each part of the tab is a tile that can be moved or hidden (Edit, QuickTiles).
         _tiles = new QuickTiles(Root, settings);
-        var parts = new (string, FrameworkElement)[] { ("media", MediaStrip), ("connect", TopRow), ("volume", VolumeSlider), ("brightness", BrightnessSlider), ("power", PowerBlock) };
+        _nowPlaying = new NowPlayingTile(media);
+        var parts = new (string, FrameworkElement)[] { ("media", _nowPlaying), ("volume", VolumeSlider), ("brightness", BrightnessSlider), ("power", PowerBlock) };
         Root.Children.Clear();
         foreach (var (id, part) in parts) _tiles.Add(id, part);
         _tiles.EditingChanged += ShowMedia;
@@ -80,6 +81,7 @@ public partial class PerformancePage : UserControl, IPage
         _ = RefreshBrightness();
         // Last known track shows at once; Windows tells us about changes only while we're open.
         ShowMedia();
+        _nowPlaying.OnShown();
         _media.StartListening();
         _ = RefreshVolume();
     }
@@ -87,6 +89,7 @@ public partial class PerformancePage : UserControl, IPage
     public void OnHidden()
     {
         _tiles.Stop(select: false);
+        _nowPlaying.OnHidden();
         _media.StopListening();
         _audio.Close();
     }
@@ -119,33 +122,8 @@ public partial class PerformancePage : UserControl, IPage
         if (!_volumeRefreshing) _audio.SetMaster(percent);
     }
 
-    void ShowMedia()
-    {
-        var media = _media.Current;
-        // While editing the tiles it shows even with nothing playing, so it can be moved too.
-        MediaStrip.Visibility = media == null && !_tiles.Editing ? Visibility.Collapsed : Visibility.Visible;
-        if (media == null)
-        {
-            MediaTitle.Text = "Now playing";
-            MediaArtist.Text = "";
-            MediaArt.Background = (Brush)FindResource("TrackBrush");
-            MediaArtFallback.Visibility = Visibility.Visible;
-            return;
-        }
-        MediaTitle.Text = media.Title;
-        MediaArtist.Text = string.Join(" · ", new[] { media.Artist, media.App }.Where(s => s.Length > 0));
-        MediaArt.Background = media.Art != null
-            ? new ImageBrush(media.Art) { Stretch = Stretch.UniformToFill }
-            : (Brush)FindResource("TrackBrush");
-        MediaArtFallback.Visibility = media.Art == null ? Visibility.Visible : Visibility.Collapsed;
-        PlayPauseButton.Content = media.Playing ? "" : "";
-        PreviousButton.IsEnabled = media.CanPrevious;
-        NextButton.IsEnabled = media.CanNext;
-    }
-
-    void PlayPause_Click(object sender, RoutedEventArgs e) => _media.PlayPause();
-    void Previous_Click(object sender, RoutedEventArgs e) => _media.Previous();
-    void Next_Click(object sender, RoutedEventArgs e) => _media.Next();
+    // While editing the tiles it shows even with nothing playing, so it can be moved too.
+    void ShowMedia() => _nowPlaying.Show(_media.Current, _tiles.Editing);
 
     /// <summary>Picks up changes made elsewhere (Windows' slider, brightness keys) each time the panel opens.</summary>
     async Task RefreshBrightness()
@@ -167,8 +145,8 @@ public partial class PerformancePage : UserControl, IPage
         if (!_brightnessRefreshing) _brightness.Set(percent);
     }
 
-    /// <summary>A tile from elsewhere (capture, the performance overlay); ArrangeTiles once all are in.</summary>
-    public void AddTile(string id, FrameworkElement tile) => _tiles.Add(id, tile);
+    /// <summary>A tile from elsewhere (mode, Wi-Fi, capture, the overlay...); ArrangeTiles once all are in.</summary>
+    public void AddTile(string id, FrameworkElement tile, TileSize size = TileSize.Full) => _tiles.Add(id, tile, size);
 
     /// <summary>Puts the tiles in the order the user chose.</summary>
     public void ArrangeTiles() => _tiles.Arrange();
@@ -180,6 +158,9 @@ public partial class PerformancePage : UserControl, IPage
         else _tiles.Stop(select: false);
     }
 
+    /// <summary>Debug captures: the now-playing tile open (returns what to select; null when nothing plays), or closed.</summary>
+    public FrameworkElement? ShowNowPlayingForCapture(bool open) => _nowPlaying.ShowOpenForCapture(open);
+
     /// <summary>Edit changed the panel's size or side.</summary>
     public event Action? PanelPlacementChanged
     {
@@ -187,8 +168,12 @@ public partial class PerformancePage : UserControl, IPage
         remove => _tiles.PlacementChanged -= value;
     }
 
-    /// <summary>The row above volume and brightness (controller mode, Wi-Fi, Bluetooth).</summary>
-    public void SetTopRow(UIElement row) => TopRow.Content = row;
+    /// <summary>Edit turned the Library tab on or off.</summary>
+    public event Action? LibraryTabChanged
+    {
+        add => _tiles.LibraryTabChanged += value;
+        remove => _tiles.LibraryTabChanged -= value;
+    }
 
     readonly List<IPage> _screens = new();
 

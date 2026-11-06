@@ -5,6 +5,7 @@ using ClawControl.Features.Controller;
 using ClawControl.Features.Apps;
 using ClawControl.Features.Capture;
 using ClawControl.Features.Graphics;
+using ClawControl.Features.Library;
 using ClawControl.Features.Network;
 using ClawControl.Features.Overlay;
 using ClawControl.Features.Performance;
@@ -63,7 +64,10 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
-            Log.Error("Unexpected error", args.Exception);
+            // Where it happened too: an error swallowed here once silently stopped the panel opening.
+            var where = args.Exception.StackTrace?.Split('\n').Select(line => line.Trim())
+                .FirstOrDefault(line => line.Contains("ClawControl.")) ?? "unknown place";
+            Log.Error($"Unexpected error {where}", args.Exception);
             args.Handled = true;
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -104,7 +108,10 @@ public partial class App : Application
         Action closePanel = () => _overlay?.HidePanel();
         var wifiScreen = new WifiScreen(net, closePanel);
         var bluetoothScreen = new BluetoothScreen(net, closePanel);
-        performancePage.SetTopRow(new QuickRow(_controller, net, wifiScreen, bluetoothScreen, page => _overlay?.OpenSubPage(page)));
+        var quick = new QuickRow(_controller, net, wifiScreen, bluetoothScreen, page => _overlay?.OpenSubPage(page));
+        performancePage.AddTile("mode", quick.Mode, TileSize.Circle);
+        performancePage.AddTile("wifi", quick.Wifi, TileSize.Half);
+        performancePage.AddTile("bluetooth", quick.Bluetooth, TileSize.Half);
         var appsMenu = new AppsPowerScreen();
         // Screenshots and recordings: the panel closes first, files are named after the app in front.
         _capture = new ScreenCapture();
@@ -114,22 +121,33 @@ public partial class App : Application
         Action back = () => _overlay?.Back();
         var screenshotScreen = new ScreenshotScreen(_settings, openSub, back);
         var recordScreen = new RecordScreen(_settings, openSub, back);
-        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, screenshotScreen, recordScreen);
-        performancePage.AddTile("capture", new CaptureRow(capture, () => openSub(screenshotScreen), () => openSub(recordScreen)));
-        performancePage.AddTile("overlay", new OverlaySection(_settings, _perfOverlay));
+        var captureTiles = new CaptureTiles(capture, () => openSub(screenshotScreen), () => openSub(recordScreen));
+        performancePage.AddTile("screenshot", captureTiles.Screenshot, TileSize.Half);
+        performancePage.AddTile("record", captureTiles.Record, TileSize.Half);
+        OverlayTile? overlayTile = null;
+        var overlayScreen = new OverlayScreen(_settings, _perfOverlay, () => overlayTile?.Refresh());
+        overlayTile = new OverlayTile(_settings, _perfOverlay, () => openSub(overlayScreen));
+        performancePage.AddTile("overlay", overlayTile.View, TileSize.Half);
+        performancePage.AddScreens(soundPage, wifiScreen, bluetoothScreen, appsMenu, screenshotScreen, recordScreen, overlayScreen);
         performancePage.ArrangeTiles();
         performancePage.PanelPlacementChanged += () => _overlay?.ApplyPlacement();
         _graphics = new GraphicsService(_settings);
+        var libraryPage = new LibraryPage(new LibraryService(_settings), openSub, () => _overlay?.CloseScreens(), closePanel);
+        // Tabs left to right (the user's order, 2026-11-06): Quick in the middle.
         var pages = new IPage[]
         {
-            performancePage,
             new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page)),
+            libraryPage,
+            performancePage,
             new ControllerPage(_controller, page => _overlay?.OpenSubPage(page)),
         };
         _overlay = new OverlayWindow(pages, _settings, net)
         {
             SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu, Switcher = new AppSwitcher(), Updater = new Updates(_settings),
         };
+        // The Library tab only while it's on (Edit on the Quick tab).
+        _overlay.SetPageShown(libraryPage, _settings.LibraryTab);
+        performancePage.LibraryTabChanged += () => _overlay?.SetPageShown(libraryPage, _settings.LibraryTab);
         _performance.Changed += UpdateStatus;
         UpdateStatus();
         _overlay.Prewarm();

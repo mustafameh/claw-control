@@ -177,7 +177,7 @@ public class FillSlider : Slider
         if (now == _last) return;  // Rendering can fire more than once per frame
         double dt = _last == TimeSpan.Zero ? 1 / 60.0 : Math.Min(0.05, (now - _last).TotalSeconds);
         _last = now;
-        if (!IsVisible)
+        if (!IsVisible || Motion.Reduced)
         {
             Snap();
             return;
@@ -254,7 +254,7 @@ public class FillSlider : Slider
     /// <summary>The new value slides in from below when it went up, from above when it went down.</summary>
     void RollValue()
     {
-        if (!IsVisible) return;
+        if (!IsVisible || Motion.Reduced) return;
         var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.3 };
         var time = TimeSpan.FromMilliseconds(240);
         foreach (var value in new[] { _value, _darkValue })

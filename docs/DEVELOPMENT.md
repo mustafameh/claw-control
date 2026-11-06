@@ -116,7 +116,27 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     (`Handle`) over each tile and leaves the tile's own controls out of navigation
     (`PanelInput.Skip`); A picks a tile up, up / down move it (`PanelInput.Steer`), X hides it
     (`PanelInput.Action`, the footer shows `ActionHint`), B / Done leaves (`IPage.HandleBack`,
-    `IPage.BackHint`).
+    `IPage.BackHint`). Since 0.1.12 tiles have a size (`TileSize`): Full, Half (Wi-Fi,
+    Bluetooth, Screenshot, Record, Overlay: `UI/QuickTile`) or Circle (mode); consecutive small
+    tiles share a row (two halves plus a circle; a lone half keeps its half), rebuilt by
+    `QuickTiles.Layout` after every move. Old saved ids `connect` / `capture` expand to their
+    parts. The Overlay tile's › opens `OverlayScreen`.
+  - Library tab (`Features/Library`, 0.1.12): pinned apps and added games (`Settings.LibraryApps`
+    / `LibraryGames`, `LibraryItem`). Games are only added by the user: `GameFinder` reads Steam's
+    `libraryfolders.vdf` and `appmanifest_*.acf` (cover from `appcache\librarycache`, 2 : 3),
+    Epic's `ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item`, and `X:\XboxGames\*\Content\
+    MicrosoftGame.config` (shell id from the package's family name), when the user presses Find.
+    Epic covers: Epic's `Data\Catalog\catcache.bin` (base64 JSON) holds each game's
+    `DieselGameBoxTall` link; `LibraryService.FetchCoversAsync` downloads missing ones to `covers\` when the tab shows
+    (once per run each; the only download besides the update check). Names use Impact, which
+    needs globalization data: with `InvariantGlobalization` on, WPF's font cache throws
+    (`MS.Internal.FontCache.MajorLanguages`) for any font but Segoe ones and startup stops half
+    way, so it's off and `Program.Main` pins the invariant culture for numbers and dates instead;
+    `StartMenuApps` lists `shell:AppsFolder` for Add an app. Everything opens through
+    `explorer.exe` (so not with Claw Control's admin rights). Running = a window whose shell id,
+    program or install folder matches (`LibraryService.Running`), checked only while the tab is
+    shown and every 0.7 s while a game is starting. Pages can be hidden
+    (`OverlayWindow.SetPageShown`); the tabs are sized to their names.
   - Capture (`Features/Capture`, `Hardware/ScreenCapture`): Screenshot / Record tiles and the
     Capture screen. The panel closes first (`OverlayWindow.HideAndWaitAsync`); while recording,
     the panel and glass are excluded from capture (`SetWindowDisplayAffinity`).
@@ -129,6 +149,12 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   `OverlayWindow.Handle` drops the same command arriving from two sources within 150 ms. Left / right on a focused slider move
   it; `UI/PanelInput.Accept` gives a slider an A action, `PanelInput.Hint` sets the footer's A
   label, `PanelInput.Steer` lets a control decide a D-pad direction first (paged rows).
+- Focus over games (`OverlayWindow.ShowPanel`): over a full-screen (borderless) game the panel
+  opens without taking the focus (`WS_EX_NOACTIVATE`), since many games leave full screen when
+  they lose it. A game in exclusive full screen (`SHQueryUserNotificationState` says
+  `QUNS_RUNNING_D3D_FULL_SCREEN`) hides every window over it, so there the panel takes the focus
+  (the game steps out) and closing hands it back (`GiveBackFocus`), unless the focus already
+  went elsewhere (an app picked in the switcher).
 - To give the MSI button back: `"TakeOverMsiButton": false` in settings.json, then restart.
   `"HideControllerFromGames": false` turns the panel mapping off (games see the panel's presses).
 
@@ -146,7 +172,12 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 ## Design rules
 
 - Floating glass card, top-right with a 12-unit gap, as tall as its content (scrolls if taller),
-  26-unit corners.
+  30-unit corners. Corners nest (Apple's concentric rule, 0.1.12): an inner shape's radius is
+  the card's less its inset, so tiles, cards and covers about 20 units in are 10-11, rows
+  inside a card 8, the tab row (16 in) 14. Capsules (sliders, chips, switches) and circles
+  stay as they are. A big card may go rounder (the open now-playing tile is 18).
+- Button hints in the footer and tab row: A / B / X / Y in circles, LB / RB in capsules
+  (`FaceHint` / `BumperHint`), shaped like the buttons themselves.
 - Sizes are **design units** (`UI/ScreenFit`): 1 unit = screen height / 800 physical pixels
   (1.5 px on the Claw's 1920 × 1200 at 150 %, what it was designed at). The card gets a
   `LayoutTransform` that cancels Windows scaling, so the panel covers the same share of the
@@ -204,6 +235,25 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   remove the selected row. The drop then fades and raises `Lost`; the panel selects the control
   nearest that spot (`SpatialNavigator.Nearest`). The drop follows the window's logical focus,
   not only keyboard focus, because the panel isn't always the active window.
+- Adaptive tint (`UI/Glass`, 0.1.12): `Glass.Tint` is one changeable brush handed straight to
+  everything glass (never through the app's resources, see Lessons). Opening the panel
+  samples the screen where the card will be (GDI `StretchBlt` to 12 × 18, ~8 ms of Windows
+  copying the screen, so on a background task) and deepens the tint over bright pictures.
+- Now playing (`Features/Performance/NowPlayingTile`, 0.1.12): the cover's pre-blurred copy
+  stretched behind (no blur effect per frame) under a dark wash, and `UI/SpectrumBars` in the
+  cover's colour fading out at their tips (an arch, so the edges stay calm; at most 30 redraws
+  a second, only while playing and shown). Compact until selected; then it morphs open: shared
+  parts (cover, title, buttons) grow out of their compact spots with render transforms, the
+  rest fades in, the corners go from 11 to 18. The page is held at its new height for the move
+  (`ScrollViewer.MinHeight`), so the window resizes once, not per frame. Its buttons use
+  `PanelInput.StayInRow`: left / right never jump diagonally to another row. `UI/SeekBar` is a
+  `Slider` drawn in `OnRender` that sends one seek after the presses stop.
+- Soft scroll edges (`UI/ScrollFade`): an opacity mask fades content toward an edge with more
+  to scroll; no mask while everything fits.
+- Reduce Motion (`UI/Motion`): Windows' "Animation effects" off makes the drop, sliders, app
+  switcher, tab pill, Library glide and tile lift jump to where they end.
+- No opening animation: the panel appears at once (a 160 ms "materialize" was tried in 0.1.12;
+  on the device it read as a flicker, and the user wants it snappy).
 - Not possible in WPF: bending the game behind the panel's rim (WPF can't see the DWM backdrop);
   bending content under the drop's rim would need a compiled pixel shader.
 
@@ -225,6 +275,15 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   window on top and takes its own `CopyFromScreen` shot is quicker than trying in the real app.
 
 ## Lessons
+
+- Don't animate anything that resizes the panel window frame by frame (a tile's height, say):
+  the window is see-through (`AllowsTransparency`) with its glass in another window, and
+  Windows draws each newly grown strip late, so it shows an empty band and then snaps. Resize
+  once (hold the page at its end height) and move things inside with render transforms.
+- The window's room below the card is never cut to fit Windows' maximum window height
+  (`SM_CYMAXTRACK`): cutting it ended the card's blurred shadow in a straight line, a faint
+  square box under the rounded corners over bright pictures. The card's maximum height gives
+  way instead.
 
 - WPF slider range setup fires `ValueChanged`; guard it, and never write firmware before startup
   has read it.
@@ -262,6 +321,11 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   `Process.GetProcesses()` and `QueryFullProcessImageName`.
 - Never set `Foreground = null` to mean "inherit": it's a local value and the text draws
   invisibly. Leave the property unset.
+- Never put a brush (or any Freezable) that must change later into `Application.Resources`:
+  WPF freezes it the moment it's added, and changing it then throws. The glass tint
+  (`UI/Glass.Tint`) lived there once; its change ran just before `Show()`, so over bright
+  pictures the exception stopped the panel opening and the MSI button seemed to need several
+  presses. Changing brushes are handed out directly.
 - During captures the panel is hidden, so `IsVisible` is false everywhere: capture code checks
   `Visibility`.
 - PowerShell `FindWindow($null, ...)` passes an empty string, not null: use `[NullString]::Value`.

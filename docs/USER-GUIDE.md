@@ -56,8 +56,12 @@ connected, faint = on but not connected, crossed out = off) and the **battery**.
 
 Top to bottom:
 
-- **Now playing** (only while music or video plays): artwork, title, artist, and previous /
-  play-pause / next.
+- **Now playing** (only while music or video plays): the cover, title, time, and previous /
+  play-pause (a ring shows how far the track is) / next, with the cover's colours glowing
+  behind and faint bars moving with the sound. Select it and it opens: a big cover, artist and
+  app, a seek line with the time gone and left (**left / right** jump 10 s; drag it with a
+  finger), and big previous / play / next. Works with Spotify, browsers (YouTube…) and any app
+  that shows in Windows' own media controls; seeking only where the app allows it.
 - **Controller mode circle**: flips the controller between Xbox (gamepad) and Desktop (mouse)
   mode. PlayStation mode and Off are on the [Controller tab](#controller-tab).
 - **Wi-Fi tile**: **A** turns Wi-Fi on / off; **›** opens the list of networks. Saved and open
@@ -90,8 +94,40 @@ Top to bottom:
   and **Save to**. **Save to** browses folders with the D-pad (**Save here**, **Up**, the
   folders inside; your usual folders and drives, an SD card too, at the top). The panel never
   shows up in Claw Control's own recordings.
-- **Overlay**: switches the [performance overlay](#performance-overlay) on or off. While it's on,
-  pick where it sits on a mini screen and which numbers it shows.
+- **Overlay**: **A** switches the [performance overlay](#performance-overlay) on or off (the
+  tile turns blue while it's on); **›** opens **Overlay**: on / off, where it sits on a mini
+  screen, which numbers it shows, and their size.
+
+The mode circle, Wi-Fi, Bluetooth, Screenshot, Record and Overlay are small tiles: two share a
+row (plus the circle), and each one moves on its own (see
+[Arranging the Quick tab](#arranging-the-quick-tab)).
+
+## Library tab
+
+Your apps and games in one place. The tabs read **Graphics · Library · Quick · Controller**;
+turn the Library off (and on) with **Edit** on the Quick tab.
+
+- **Apps** (the lighter band): apps you pinned, as circles. **A** opens one (or goes back to it
+  when it's running, marked by a green dot); **X** unpins it. **+** lists the apps in your Start
+  menu: **A** pins or unpins one.
+- **Games**: the games you added, as covers with their name along the bottom (Steam's art from
+  the Claw; Epic's downloaded once from Epic's image server when you add the game; otherwise the
+  game's icon), the last played first; the selected one's name and launcher are under them.
+  They reach down to just above the taskbar (the next row peeks in) and glide row by row.
+  A running game says **Playing**, and **A** goes back to it. **A** on another shows
+  **Starting…** until the game opens, then the panel closes. **X** removes a game from the
+  Library (it stays installed).
+- **Add games** (the last tile, or the buttons when the Library is empty):
+  - **Find games on this Claw** looks in your Steam, Epic and Xbox folders, on this Claw only:
+    no sign-in, and nothing is added on its own. It lists what it found with
+    nothing ticked; tick the ones you want (or **Select all**) and press **Add**.
+  - **Installed apps** lists everything in your Start menu: **A** adds one to your games (or
+    takes it out). For games that came with their own installer, which Steam, Epic and Xbox
+    don't know about.
+  - **Add a program** browses folders with the D-pad for any game or app (an `.exe`).
+
+Nothing about the Library runs in the background: it looks at what's running only while the tab
+is open.
 
 ## Graphics tab
 
@@ -170,7 +206,8 @@ Open it with **Y** (Triangle), the **power chip** in the header, or the **Y** hi
 
 ## Performance overlay
 
-Small numbers over your game, switched on from the Quick tab's **Overlay** tile. Choose a
+Small numbers over your game, switched on from the Quick tab's **Overlay** tile (its **›** has
+the choices). Choose a
 position (four corners, or top / bottom centre in a row) and up to twelve numbers: **FPS**,
 **Power** (W), **Temp** (CPU), **Fan**, **CPU** (%), **CPU clock**, **GPU** (%), **VRAM**,
 **RAM**, **Battery**, **TDP** (the current limits) and **Time**.
@@ -192,11 +229,13 @@ Two numbers say what's really at work, not just what's switched on (green while 
 ## Arranging the Quick tab
 
 **Edit** at the bottom of the Quick tab: every tile gets the selection around it. **A** picks a
-tile up, **up / down** move it, **A** drops it; **X** hides or shows it (hidden tiles stay dimmed
-while editing and are gone afterwards); **B** or **Done** finishes. While editing, the top also
-has **Panel size** (80-130 %: everything in the panel, text included, grows or shrinks
-together) and **Side** (left or right edge of the screen; on the left the app switcher sits to
-the right of the panel and **D-pad right** opens it).
+tile up, the D-pad moves it, **A** drops it: **left / right** move a small tile past its
+neighbour (into the next row too), **up / down** move a tile to the row above or below (a small
+tile joins that row); **X** hides or shows it (hidden tiles stay dimmed while editing and are
+gone afterwards); **B** or **Done** finishes. While editing, the top also has **Panel size**
+(80-130 %: everything in the panel, text included, grows or shrinks together), **Side** (left
+or right edge of the screen; on the left the app switcher sits to the right of the panel and
+**D-pad right** opens it) and **Library tab** (on / off).
 
 ## Good to know
 

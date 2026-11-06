@@ -16,7 +16,6 @@ public sealed class Settings
     public List<string> OverlayItems { get; set; } = new(Monitoring.Metrics.Defaults);
     /// <summary>How big the overlay's numbers are, in percent of the normal size.</summary>
     public int OverlaySize { get; set; } = 100;
-    public string LastPage { get; set; } = "performance";
     /// <summary>The user turned the built-in controller off (it's turned back on while the panel is open).</summary>
     public bool ControllerOff { get; set; }
     /// <summary>Last controller mode seen outside the panel (chip value: 1 Xbox, 2 PlayStation, 4 Desktop).</summary>
@@ -39,6 +38,11 @@ public sealed class Settings
     public List<string> QuickOrder { get; set; } = new();
     /// <summary>Quick tab tiles hidden with Edit.</summary>
     public List<string> QuickHidden { get; set; } = new();
+    /// <summary>The Library tab is shown (Edit on the Quick tab turns it off).</summary>
+    public bool LibraryTab { get; set; } = true;
+    /// <summary>The Library's pinned apps and the games the user added, in the order added.</summary>
+    public List<Features.Library.LibraryItem> LibraryApps { get; set; } = new();
+    public List<Features.Library.LibraryItem> LibraryGames { get; set; } = new();
     /// <summary>Recordings (Capture screen): frames per second, high quality, the game's sound.</summary>
     public int RecordFps { get; set; } = 60;
     public bool RecordHigh { get; set; }

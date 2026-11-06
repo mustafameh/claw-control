@@ -59,7 +59,10 @@ sealed class AppSwitcher : Canvas
     readonly System.Windows.Shapes.Path _band = new();
     readonly Border _hub, _frame, _frameFill, _frameRim, _countAbove, _countBelow;
     readonly Image _hubIcon = new() { Width = 54, Height = 54 }, _frameIcon = new() { Width = 64, Height = 64 };
-    readonly TextBlock _hubName, _name, _detail;
+    readonly TextBlock _hubName, _name, _detail, _closeText;
+    readonly Border _closePill;
+    const double PillHeight = 50;
+    static readonly Brush PillTint = Ui.Hex("#9E161211"), ArmedBrush = Ui.Hex("#FFFFB3AD");
     /// <summary>A red dot on the tile when the app in front is frozen.</summary>
     readonly FrameworkElement _hubFrozen = FrozenDot(inset: 10);
     readonly List<Item> _ring = new();
@@ -108,7 +111,7 @@ sealed class AppSwitcher : Canvas
         RenderTransform = _zoom;
         TextElement.SetFontSize(this, 15);
 
-        var tint = Ui.Brush("PanelBrush");
+        var tint = UI.Glass.Tint;
         _band.Data = BandShape();
         _band.Fill = tint;
         _band.Stroke = Ui.Brush("GlassRimBrush");
@@ -136,6 +139,34 @@ sealed class AppSwitcher : Canvas
         _detail.FontWeight = FontWeights.Normal;
         _detail.Width = PreviewWidth;
         Put(_detail, PreviewX, CY + PreviewHeight / 2 + 30);
+        // Close background apps, while it's selected: a dark glass pill where the preview is, so
+        // it reads over any picture (it fits its text: placed in ShowClosePill).
+        _closeText = new TextBlock { FontSize = 17, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        _closePill = new Border
+        {
+            Width = PreviewWidth, Height = PillHeight, CornerRadius = new CornerRadius(PillHeight / 2), Background = PillTint,
+            BorderBrush = Ui.Brush("GlassRimBrush"), Tag = "rim", Padding = new Thickness(8, 0, 20, 0), Visibility = Visibility.Hidden,
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    new Border
+                    {
+                        Width = 34, Height = 34, CornerRadius = new CornerRadius(17), Background = AppsPowerScreen.EndBrush,
+                        Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center,
+                        Child = new TextBlock
+                        {
+                            Text = "\uE711", FontFamily = Ui.Icons, FontSize = 14, Foreground = Brushes.White,
+                            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                        },
+                    },
+                    _closeText,
+                },
+            },
+        };
+        SetTop(_closePill, CY - PillHeight / 2);
+        Children.Add(_closePill);
 
         _hub = Glass(HubSize, 27, new Grid { Children = { _hubIcon, _hubFrozen } });
         _hub.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -212,6 +243,7 @@ sealed class AppSwitcher : Canvas
             if (_mirrored == value) return;
             _mirrored = value;
             foreach (var (element, x) in _fixed) SetLeft(element, X(x, element.Width));
+            SetLeft(_closePill, X(PillLeft, _closePill.Width));
             _band.RenderTransform = value ? new ScaleTransform(-1, 1, SwitcherWidth / 2, 0) : null;
             _placed = (double.NaN, 0, false, 0);
             PlaceItems();
@@ -581,13 +613,12 @@ sealed class AppSwitcher : Canvas
         ShowCount(_countAbove, above);
         ShowCount(_countBelow, below);
 
-        // The preview shows the selected app; on Close background apps its text takes the frame's place.
+        // The preview shows the selected app; on Close background apps its pill takes the frame's place.
         bool closing = _spot == Spot.Ring && Selected is { App: null };
         RunningApp? shown = _spot == Spot.Hub ? _front : closing ? null : Selected?.App ?? _front;
         _frame.Visibility = _frameRim.Visibility = shown != null ? Visibility.Visible : Visibility.Hidden;
-        _name.Text = closing ? (_armed == "close" ? "Press A again to close them" : "Close background apps")
-            : _armed == "end" ? "Press X again to end" : shown?.Name ?? "";
-        SetTop(_name, closing ? CY - 10 : CY + PreviewHeight / 2 + 8);
+        ShowClosePill(closing);
+        _name.Text = closing ? "" : _armed == "end" ? "Press X again to end" : shown?.Name ?? "";
         // Under the name: its memory, or that it's frozen.
         _detail.Text = closing || shown == null ? "" : shown.NotResponding ? "Not responding" : shown.MemoryBytes > 0 ? Size(shown.MemoryBytes) : "";
         _detail.Foreground = shown?.NotResponding == true ? AppsPowerScreen.EndBrush : Ui.Brush("SubtleTextBrush");
@@ -599,6 +630,23 @@ sealed class AppSwitcher : Canvas
         GlassChanged?.Invoke();
         if (Active && SelectedView is { } view) SelectionChanged?.Invoke(view);
     }
+
+    /// <summary>Close background apps' pill, sized to its text and centred where the preview is.</summary>
+    void ShowClosePill(bool shown)
+    {
+        _closePill.Visibility = shown ? Visibility.Visible : Visibility.Hidden;
+        if (!shown) return;
+        bool armed = _armed == "close";
+        _closeText.Text = armed ? "Press A again" : "Close background apps";
+        if (armed) _closeText.Foreground = ArmedBrush;
+        else _closeText.ClearValue(TextBlock.ForegroundProperty);
+        _closePill.Width = double.NaN;
+        _closePill.Measure(new Size(double.PositiveInfinity, PillHeight));
+        _closePill.Width = Math.Ceiling(_closePill.DesiredSize.Width);
+        SetLeft(_closePill, X(PillLeft, _closePill.Width));
+    }
+
+    double PillLeft => PreviewX + PreviewWidth / 2 - _closePill.Width / 2;
 
     void ShowCount(Border count, int value)
     {
@@ -674,7 +722,7 @@ sealed class AppSwitcher : Canvas
     {
         _zoom.ScaleX = _zoom.ScaleY = Mini + (1 - Mini) * _grow;
         double late = Math.Clamp(_grow * 1.6 - 0.6, 0, 1);
-        _frame.Opacity = _frameRim.Opacity = _name.Opacity = _detail.Opacity = late;
+        _frame.Opacity = _frameRim.Opacity = _name.Opacity = _detail.Opacity = _closePill.Opacity = late;
         _hubName.Opacity = Math.Clamp(_grow, 0, 1);
     }
 
@@ -702,6 +750,8 @@ sealed class AppSwitcher : Canvas
         _last = now;
         double grown = Active ? 1 : 0;
         bool wasFull = _grow > 0.97;
+        // Reduce Motion: straight to where it's going.
+        if (Motion.Reduced) (_turn, _turnV, _grow, _growV, _pictureFade) = (_turnHeld ? _turn : _selected, 0, grown, 0, 1);
         for (double left = dt; left > 1e-6; left -= 1 / 120.0)
         {
             double step = Math.Min(left, 1 / 120.0);
@@ -733,17 +783,20 @@ sealed class AppSwitcher : Canvas
 
     /// <summary>
     /// The blurred pieces under the switcher (switcher units before its grow, corner radius): the
-    /// arc as a row of overlapping circles, the tile, the preview frame and the counts. Always in
-    /// the same order and number (a missing one has opacity 0), so the glass only changes what
-    /// changed; growing moves them all at once (the panel passes the switcher's transform).
+    /// arc as a row of overlapping circles, the tile, the preview frame, Close background apps'
+    /// pill and the counts. Always in the same order and number (a missing one has opacity 0), so
+    /// the glass only changes what changed; growing moves them all at once (the panel passes the
+    /// switcher's transform).
     /// </summary>
     public List<(Rect Area, double Radius, double Opacity)> GlassPieces()
     {
-        var pieces = new List<(Rect, double, double)>(ArcPieces.Count + 4);
+        var pieces = new List<(Rect, double, double)>(ArcPieces.Count + 5);
         pieces.AddRange(ArcPieces.Select(p => (Mirror(p.Area), p.Radius, p.Opacity)));
         pieces.Add((Mirror(new Rect(CX - HubSize / 2, CY - 50, HubSize, HubSize)), 27, _front != null ? 1 : 0));
         pieces.Add((Mirror(new Rect(PreviewX, CY - PreviewHeight / 2, PreviewWidth, PreviewHeight)), 18,
             _frame.Visibility == Visibility.Visible && _frame.Opacity > 0.01 ? _frame.Opacity : 0));
+        pieces.Add((Mirror(new Rect(PillLeft, CY - PillHeight / 2, _closePill.Width, PillHeight)), PillHeight / 2,
+            _closePill.Visibility == Visibility.Visible && _closePill.Opacity > 0.01 ? _closePill.Opacity : 0));
         foreach (var count in new[] { _countAbove, _countBelow })
             pieces.Add((Circle(GetLeft(count) + CountSize / 2, GetTop(count) + CountSize / 2, CountSize / 2), CountSize / 2,
                 count.Visibility == Visibility.Visible ? 1 : 0));
@@ -805,7 +858,7 @@ sealed class AppSwitcher : Canvas
     /// <summary>A glass piece: the panel's tint, a lit rim, rounded.</summary>
     static Border Glass(double size, double radius, UIElement child) => new()
     {
-        Width = size, Height = size, CornerRadius = new CornerRadius(radius), Background = Ui.Brush("PanelBrush"),
+        Width = size, Height = size, CornerRadius = new CornerRadius(radius), Background = UI.Glass.Tint,
         BorderBrush = Ui.Brush("GlassRimBrush"), Child = child, Tag = "rim",
     };
 
