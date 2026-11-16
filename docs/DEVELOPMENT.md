@@ -128,7 +128,20 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     MicrosoftGame.config` (shell id from the package's family name), when the user presses Find.
     Epic covers: Epic's `Data\Catalog\catcache.bin` (base64 JSON) holds each game's
     `DieselGameBoxTall` link; `LibraryService.FetchCoversAsync` downloads missing ones to `covers\` when the tab shows
-    (once per run each; the only download besides the update check). Names use Impact, which
+    (once per run each). Cover screen (`CoverScreen`, X on a cover): `CoverFinder` asks Steam's
+    public store search (`store.steampowered.com/api/storesearch`, name without repack tags; a
+    Steam game's own id first) and `appdetails?filters=screenshots`, only when the screen opens,
+    kept for the run; `library_600x900.jpg` / `library_hero.jpg` from Steam's CDN. A picked
+    picture (Steam's or a file) is cropped to its middle 2 : 3, at most 600 × 900, and saved as
+    a new JPEG in `covers\` (a new name each time, so no cached old picture shows; the old own
+    file is deleted). "Icon only" sets `IconOnly` (no Epic cover fetched again). Search Steam is
+    a row (the navigator only lands on buttons) that swaps to a `TextBox`: `OverlayWindow.AllowTyping`
+    lets injected keys (`LLKHF_INJECTED`: the touch keyboard's; the chip's never are) through
+    `DesktopInputBlocker` while it has focus and makes the panel take the focus even over a game
+    that kept it (given back on close); `UI/TouchKeyboard` shows Windows' keyboard through
+    TabTip's `ITipInvocation` (only when `IFrameworkInputPane` says it's hidden). WPF's
+    `BitmapCreateOptions.IgnoreImageCache` throws "key cannot be null" for a picture from a
+    stream: never use it there. Names use Impact, which
     needs globalization data: with `InvariantGlobalization` on, WPF's font cache throws
     (`MS.Internal.FontCache.MajorLanguages`) for any font but Segoe ones and startup stops half
     way, so it's off and `Program.Main` pins the invariant culture for numbers and dates instead;
@@ -275,6 +288,13 @@ resident from login, so the panel opens instantly. How the hardware is driven:
   window on top and takes its own `CopyFromScreen` shot is quicker than trying in the real app.
 
 ## Lessons
+
+- Touch runs on Windows' pointer messages (`Switch.System.Windows.Input.Stylus.EnablePointerSupport`
+  in the project). WPF's default touch stack (WISP) handles touch on its own pen thread and
+  caches each display scale's transform there lazily; the first touch after the scaling changed
+  (a game switching resolution) read the window's new scale from the pen thread, which threw
+  and ended the app ("The calling thread cannot access this object…" in
+  `PenContexts.InvokeStylusPluginCollection`). Nothing in the app can catch that.
 
 - Don't animate anything that resizes the panel window frame by frame (a tile's height, say):
   the window is see-through (`AllowsTransparency`) with its glass in another window, and

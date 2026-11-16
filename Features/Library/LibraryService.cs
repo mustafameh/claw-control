@@ -31,7 +31,7 @@ public sealed class LibraryService(Settings settings)
 
     public void Pin(StartMenuApp app)
     {
-        var item = new LibraryItem { Name = app.Name, Source = "App", Launch = $@"shell:AppsFolder\{app.AppId}", AppId = app.AppId, Program = app.Program };
+        var item = new LibraryItem { Name = app.Name, Source = "App", Launch = app.Launch, AppId = app.AppId, Program = app.Program };
         if (Has(item)) return;
         settings.LibraryApps.Add(item);
         settings.SaveSoon();
@@ -52,7 +52,7 @@ public sealed class LibraryService(Settings settings)
         if (IsGame(app)) return;
         settings.LibraryGames.Add(new LibraryItem
         {
-            Name = app.Name, Source = "Installed", Launch = $@"shell:AppsFolder\{app.AppId}", AppId = app.AppId,
+            Name = app.Name, Source = "Installed", Launch = app.Launch, AppId = app.AppId,
             Program = app.Program, Folder = app.Program != null ? Path.GetDirectoryName(app.Program) : null,
         });
         settings.SaveSoon();
@@ -71,18 +71,56 @@ public sealed class LibraryService(Settings settings)
         settings.LibraryGames.Remove(item);
         settings.LibraryApps.Remove(item);
         settings.SaveSoon();
-        // A cover downloaded for it goes too.
+        // A cover downloaded or picked for it goes too.
+        DeleteOwnCover(item.Cover);
+        Forget(item);
+    }
+
+    /// <summary>Deletes a cover file Claw Control made (in its covers folder), never another one.</summary>
+    static void DeleteOwnCover(string? cover)
+    {
         try
         {
-            if (item.Cover != null && item.CoverUrl != null && item.Cover.StartsWith(CoversFolder, StringComparison.OrdinalIgnoreCase)) File.Delete(item.Cover);
+            if (cover != null && cover.StartsWith(CoversFolder, StringComparison.OrdinalIgnoreCase)) File.Delete(cover);
         }
         catch { }  // in use: it's small
-        Forget(item);
+    }
+
+    // ---- Changing a cover (the Cover screen) ----
+
+    /// <summary>Makes a picture (a Steam link, or a file on this Claw) the game's cover: its middle
+    /// 2 : 3 is kept as a file next to the settings, so the picture itself may go.</summary>
+    public async Task SetCoverAsync(LibraryItem game, string source)
+    {
+        string name = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(game.Key)))[..16]
+            + "-" + DateTime.UtcNow.Ticks.ToString("x");  // a new name each time: no old picture shown from a cache
+        string file = await CoverFinder.SaveCoverAsync(source, CoversFolder, name);
+        string? old = game.Cover;
+        game.Cover = file;
+        game.CoverUrl = null;
+        game.SquareCover = false;
+        game.IconOnly = false;
+        if (!string.Equals(old, file, StringComparison.OrdinalIgnoreCase)) DeleteOwnCover(old);
+        Forget(game);
+        settings.SaveSoon();
+        Log.Info($"New cover for {game.Name} ({(source.StartsWith("http") ? "Steam" : "a picture")})");
+    }
+
+    /// <summary>No cover: the game shows its icon (and none is looked up for it again).</summary>
+    public void SetIconOnly(LibraryItem game)
+    {
+        DeleteOwnCover(game.Cover);
+        game.Cover = null;
+        game.CoverUrl = null;
+        game.SquareCover = false;
+        game.IconOnly = true;
+        Forget(game);
+        settings.SaveSoon();
     }
 
     // ---- Downloaded covers (Epic keeps only links to them on the device) ----
 
-    static readonly string CoversFolder = Path.Combine(Log.Dir, "covers");
+    static readonly string CoversFolder = Path.Combine(Log.Dir, "covers") + Path.DirectorySeparatorChar;
     static readonly HttpClient Http = CreateHttp();
     /// <summary>Games whose cover was tried this run (a failed one is tried again next run, not on every look).</summary>
     readonly HashSet<string> _coverTried = new();
@@ -102,7 +140,7 @@ public sealed class LibraryService(Settings settings)
         Dictionary<string, string>? links = null;
         foreach (var game in settings.LibraryGames.ToList())
         {
-            if (game.Cover != null && File.Exists(game.Cover)) continue;
+            if (game.IconOnly || (game.Cover != null && File.Exists(game.Cover))) continue;
             if (game.CoverUrl == null && GameFinder.EpicItemId(game) is { } id)
                 game.CoverUrl = (links ??= await Task.Run(GameFinder.EpicCoverLinks)).GetValueOrDefault(id);
             if (game.CoverUrl == null || !_coverTried.Add(game.Key)) continue;

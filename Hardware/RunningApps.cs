@@ -185,7 +185,8 @@ public static class RunningApps
         // A Store app's own tile icon (its shell id), else the program file's icon, else the one
         // its window shows in the taskbar (games often set their logo only there).
         bool fileHasIcon = path != null && ExtractIconEx(path, -1, null, null, 0) > 0;
-        string?[] sources = [appId != null ? AppsFolder + appId : null, fileHasIcon ? path : null];
+        // A desktop shortcut's id is its own path: its icon is the one the desktop shows.
+        string?[] sources = [appId == null ? null : Path.IsPathRooted(appId) ? appId : AppsFolder + appId, fileHasIcon ? path : null];
         foreach (var source in sources.OfType<string>())
         {
             string key = $"{source}|{size}";

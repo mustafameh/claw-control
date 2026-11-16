@@ -45,6 +45,9 @@ public sealed class LibraryPage : UserControl, IPage
     readonly Action _closePanel;
     readonly AddGamesScreen _addGames;
     readonly AddAppScreen _addApp;
+    readonly CoverScreen _cover;
+    /// <summary>The game whose Cover screen was opened: selected again when back on the tab.</summary>
+    LibraryItem? _returnTo;
     readonly UniformGrid _apps = new() { Columns = 5 };
     readonly UniformGrid _games = new() { Columns = 3 };
     readonly ScrollViewer _gamesView;
@@ -60,7 +63,7 @@ public sealed class LibraryPage : UserControl, IPage
     public string Id => "library";
     public string Title => "Library";
     public FrameworkElement View => this;
-    public IEnumerable<IPage> Screens => [_addGames, _addApp];
+    public IEnumerable<IPage> Screens => [_addGames, _addApp, _cover];
 
     public LibraryPage(LibraryService library, Action<IPage> openSubPage, Action closeScreens, Action closePanel)
     {
@@ -69,6 +72,7 @@ public sealed class LibraryPage : UserControl, IPage
         _closePanel = closePanel;
         _addGames = new AddGamesScreen(library, openSubPage, closeScreens);
         _addApp = new AddAppScreen(library, asGames: false);
+        _cover = new CoverScreen(library, openSubPage, closeScreens);
 
         var appsBand = new Border
         {
@@ -131,6 +135,13 @@ public sealed class LibraryPage : UserControl, IPage
         else ShowStates();
         FitGamesSoon();
         FetchCovers();
+        // Back from a game's Cover screen: on that game again (after the panel's own pick of a
+        // selection, which would go to the tab's first control).
+        if (_returnTo is { } back)
+        {
+            _returnTo = null;
+            Dispatcher.BeginInvoke(() => { if (_shown && _views.TryGetValue(back.Key, out var view)) Ui.Select(view.Button); }, DispatcherPriority.ContextIdle);
+        }
         // Steam's own record of what was played, and what's running: from the background (the
         // tab is laid out again only if the order changed).
         _ = Task.Run(() =>
@@ -149,7 +160,7 @@ public sealed class LibraryPage : UserControl, IPage
     /// <summary>What the tab was last laid out for: the games in order, then the apps.</summary>
     string? _built;
 
-    string Arrangement() => string.Join("|", _library.Games.Select(g => g.Key)) + "#" + string.Join("|", _library.Apps.Select(a => a.Key));
+    string Arrangement() => string.Join("|", _library.Games.Select(g => $"{g.Key}>{g.Cover}")) + "#" + string.Join("|", _library.Apps.Select(a => a.Key));
 
     /// <summary>Covers a game is missing (Epic's) come in quietly; the tab shows them when they do.</summary>
     async void FetchCovers()
@@ -239,18 +250,30 @@ public sealed class LibraryPage : UserControl, IPage
 
     /// <summary>A game's cover: its art (Steam's, Epic's), else its icon on a card; its name along
     /// the bottom in a poster face over a soft dark fade; Playing / Starting… over it.</summary>
-    Button Cover(LibraryItem game)
+    /// <summary>What's on a cover card: the icon (shown while there's no art), the dark fade and the
+    /// game's name in the poster face along the bottom (the Cover screen's preview is the same, larger).</summary>
+    internal static Grid Face(string name, Image icon, double scale = 1)
     {
         var face = new Grid();
-        var icon = new Image { Width = 64, Height = 64, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 40) };
+        icon.Width = icon.Height = 64 * scale;
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        icon.Margin = new Thickness(0, 0, 0, 40 * scale);
         face.Children.Add(icon);
-        face.Children.Add(new Border { CornerRadius = new CornerRadius(0, 0, 10, 10), Background = FadeBrush, VerticalAlignment = VerticalAlignment.Bottom, Height = 90 });
+        face.Children.Add(new Border { CornerRadius = new CornerRadius(0, 0, 10 * scale, 10 * scale), Background = FadeBrush, VerticalAlignment = VerticalAlignment.Bottom, Height = 90 * scale });
+        double size = Math.Round(17 * scale);
         face.Children.Add(new TextBlock
         {
-            Text = game.Name.ToUpperInvariant(), FontFamily = PosterFont, FontSize = 17, Foreground = Brushes.White,
-            TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, LineHeight = 17, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            MaxHeight = 3 * 17, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(9, 0, 9, 9),
+            Text = name.ToUpperInvariant(), FontFamily = PosterFont, FontSize = size, Foreground = Brushes.White,
+            TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, LineHeight = size, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+            MaxHeight = 3 * size, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(9 * scale, 0, 9 * scale, 9 * scale),
         });
+        return face;
+    }
+
+    Button Cover(LibraryItem game)
+    {
+        var icon = new Image();
+        var face = Face(game.Name, icon);
 
         var playing = new Border
         {
@@ -276,8 +299,13 @@ public sealed class LibraryPage : UserControl, IPage
         Square(button);
         button.Click += (_, _) => Open(game);
         button.GotFocus += (_, _) => Describe(game);
-        PanelInput.SetAction(button, () => { _library.Remove(game); Build(null); });
-        PanelInput.SetActionHint(button, "Remove");
+        PanelInput.SetAction(button, () =>
+        {
+            _returnTo = game;
+            _cover.Game = game;
+            _openSubPage(_cover);
+        });
+        PanelInput.SetActionHint(button, "Cover");
         LoadPicture(game, CoverPixels, picture =>
         {
             if (picture == null) return;
@@ -508,7 +536,7 @@ public sealed class LibraryPage : UserControl, IPage
     static ControlTemplate? _coverTemplate, _addTemplate;
 
     /// <summary>A rounded picture card (its background is the cover); the drop follows its corners.</summary>
-    static ControlTemplate CoverTemplate()
+    internal static ControlTemplate CoverTemplate()
     {
         if (_coverTemplate != null) return _coverTemplate;
         var card = new FrameworkElementFactory(typeof(Border), "Card");

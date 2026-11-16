@@ -32,7 +32,7 @@ public sealed class FolderScreen : UserControl, IPage
 
     /// <param name="current">The folder in use now (null: start at the places).</param>
     /// <param name="pick">Save here was pressed on a folder, or a file was picked (the screen should close).</param>
-    /// <param name="fileType">Pick a file of this type (".exe"): no Save here, the files are listed after the folders.</param>
+    /// <param name="fileType">Pick a file of this type (".exe", or several: ".jpg;.png"): no Save here, the files are listed after the folders.</param>
     public FolderScreen(string id, Func<string?> current, Action<string> pick, string title = "Save to", string? fileType = null)
     {
         Id = id;
@@ -112,8 +112,9 @@ public sealed class FolderScreen : UserControl, IPage
     {
         try
         {
-            return new DirectoryInfo(folder).EnumerateFiles("*" + type)
-                .Where(f => (f.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0)
+            var types = type.ToLowerInvariant().Split(';');
+            return new DirectoryInfo(folder).EnumerateFiles()
+                .Where(f => types.Contains(f.Extension.ToLowerInvariant()) && (f.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0)
                 .Select(f => f.FullName).Order(StringComparer.OrdinalIgnoreCase).Take(MaxFolders).ToList();
         }
         catch (Exception ex)
@@ -135,7 +136,7 @@ public sealed class FolderScreen : UserControl, IPage
     IEnumerable<(string Name, string Path)> Places()
     {
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (_fileType != null)
+        if (_fileType == ".exe")
         {
             (string, string)[] programs =
             [

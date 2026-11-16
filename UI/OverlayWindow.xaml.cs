@@ -562,6 +562,8 @@ public partial class OverlayWindow : Window
     public void HidePanel()
     {
         if (!IsVisible || _hiding) return;
+        Input.DesktopInputBlocker.Typing = false;
+        TouchKeyboard.Hide();
         _clock.Stop();
         _net.StopWatching();
         _glass.Hide();
@@ -580,6 +582,31 @@ public partial class OverlayWindow : Window
         CurrentPage.OnHidden();
         _settings.SaveSoon();
         GiveBackFocus();
+    }
+
+    /// <summary>
+    /// A text box is being typed in (the Cover screen's search, with the touch keyboard): the
+    /// touch keyboard's keys get through the input blocker, and the panel takes the keyboard focus
+    /// even over a full-screen game that kept it (given back when the panel closes).
+    /// </summary>
+    public void AllowTyping(bool on)
+    {
+        Input.DesktopInputBlocker.Typing = on && IsVisible;
+        if (!on || !IsVisible) return;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (_gameKeepsFocus)
+        {
+            _gameKeepsFocus = false;
+            NativeWindow.SetNoActivate(handle, false);
+            _giveBackTo = _frontWindow;
+            Log.Detail("Typing: the panel takes the focus from the game until it closes");
+        }
+        if (!IsActive)
+        {
+            _shownAt = DateTime.UtcNow;  // the focus shuffle isn't a tap outside
+            NativeWindow.BringToFront(handle);
+            Activate();
+        }
     }
 
     /// <summary>The game the panel took the focus from (exclusive full screen), for closing.</summary>
@@ -1010,6 +1037,8 @@ public partial class OverlayWindow : Window
 
     void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Typing in a text box: its keys are text (Escape still goes back, which ends the typing).
+        if (Keyboard.FocusedElement is TextBox && e.Key != Key.Escape) return;
         NavCommand? command = e.Key switch
         {
             Key.Up => NavCommand.Up,

@@ -25,6 +25,8 @@ public sealed class LibraryItem
     /// <summary>Steam's file about the game (it notes when it was last played).</summary>
     public string? Manifest { get; set; }
     public DateTime? LastPlayed { get; set; }
+    /// <summary>The user picked "Icon only" on its Cover screen: no cover is looked up for it.</summary>
+    public bool IconOnly { get; set; }
 
     [JsonIgnore] public string Key => Launch;
 }

@@ -181,7 +181,11 @@ installed. Other Claw models use different firmware and are not supported.
   (`Monitoring/Scaling`, `PresentMonFps`): **RSR** upscales only when it's on, a game fills the
   screen and the screen is driven below its own size (current mode vs the target's preferred
   mode, `DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE`; the driver can list bigger
-  virtual modes); lower without that is plain scaling. **AFMF** frames: PresentMon 2.6
+  virtual modes); lower without that is plain scaling. That is only a deduction (nothing outside
+  the driver shows RSR at work), so the chip isn't lit green for it. The main switch is the
+  driver's `Gmx_RSREnabled` (3 on, 1 off; `KMD_USUEnable` doesn't follow it); AMD Software also
+  keeps a per-game upscaling entry in `%LOCALAPPDATA%\AMD\CN\gmdb.blb` (JSON: `upscaling_enabled`,
+  `upscaling_use_borderless`, `upscaling_target_resolution`). **AFMF** frames: PresentMon 2.6
   `--v2_metrics --track_frame_type` marks each displayed frame `Application` or `AMD AFMF`
   (needs display tracking; the frame types seen are logged once). A game's own FSR happens
   inside its frames and can't be seen from outside.

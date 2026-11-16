@@ -77,9 +77,10 @@ The hash must match the line for that file.
   memory), AMD graphics settings, display and sound settings.
 
 Claw Control connects to GitHub, once a day when you open the panel, to see whether a new
-version is out (it sends nothing about you or the device). The only other connection: when you
-add an Epic game to the Library, its cover picture is downloaded once from Epic's image server
-(Epic keeps only the link on the device) and kept on the Claw. When a new version is out, a green
+version is out (it sends nothing about you or the device). The only other connections are for
+Library covers: when you add an Epic game, its cover picture is downloaded once from Epic's image
+server (Epic keeps only the link on the device) and kept on the Claw; and when you open a game's
+**Cover** screen, the game's name is looked up on Steam's store for suggested covers. When a new version is out, a green
 sign shows next to the power sign in the panel's header; **Update now** downloads the setup
 from the GitHub release, checks it against the release's `SHA256SUMS.txt` and installs it.
 Nothing installs unless you press it.

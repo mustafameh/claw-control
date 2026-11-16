@@ -115,13 +115,23 @@ turn the Library off (and on) with **Edit** on the Quick tab.
   game's icon), the last played first; the selected one's name and launcher are under them.
   They reach down to just above the taskbar (the next row peeks in) and glide row by row.
   A running game says **Playing**, and **A** goes back to it. **A** on another shows
-  **Starting…** until the game opens, then the panel closes. **X** removes a game from the
-  Library (it stays installed).
+  **Starting…** until the game opens, then the panel closes. **X** opens the game's **Cover**
+  screen (below).
+- **Cover** (**X** on a game): the cover big at the top and the choices in a row under it: the
+  current cover, covers Steam's store suggests for the game's name (its own first, then close
+  matches), its store art and screenshots, **Your pictures** and **Icon only**. Each one shows
+  in the preview as soon as you move to it; **A** uses it, **B** goes back unchanged. **Your
+  pictures** shows the newest pictures in Downloads, Pictures, Captures and on the desktop
+  (**Browse folders** for any other folder or an SD card). The middle of the picture is kept as
+  the cover, on the Claw, so the original can go. **Search Steam** brings up Windows' touch
+  keyboard: type a name and press Enter, and Steam's matches fill the row (**B** stops typing).
+  **Remove from Library** is at the bottom (press **A** twice; the game stays installed).
 - **Add games** (the last tile, or the buttons when the Library is empty):
   - **Find games on this Claw** looks in your Steam, Epic and Xbox folders, on this Claw only:
     no sign-in, and nothing is added on its own. It lists what it found with
     nothing ticked; tick the ones you want (or **Select all**) and press **Add**.
-  - **Installed apps** lists everything in your Start menu: **A** adds one to your games (or
+  - **Installed apps** lists everything in your Start menu, plus programs that only put a
+    shortcut on your desktop (many repacks do): **A** adds one to your games (or
     takes it out). For games that came with their own installer, which Steam, Epic and Xbox
     don't know about.
   - **Add a program** browses folders with the D-pad for any game or app (an `.exe`).

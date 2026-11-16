@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.13 (2026-11-16)
+
+- **Change a game's cover:** **X** on a game in the Library opens its **Cover** screen. Pick
+  from covers Steam's store suggests for the game's name (plus its store art and screenshots),
+  from **Your pictures** (newest in Downloads, Pictures, Captures and the desktop, or browse any
+  folder), or **Icon only**. Each choice shows in a big preview as you move to it. Works for
+  every game, including ones that already have a cover. **Remove from Library** moved to this
+  screen (press **A** twice), so **X** no longer removes a game by accident.
+- **Search Steam** on the Cover screen: press it and Windows' touch keyboard comes up; type a
+  name, press Enter, and Steam's matches fill the row.
+- The overlay's **Upscaling** chip is no longer green for RSR: Windows can't tell whether RSR is
+  really the one stretching the picture.
+- **Fixed:** Claw Control could close by itself when you touched the screen after the display
+  scaling had changed (for example after a game switched resolution). Touch now goes through
+  Windows' pointer input, which doesn't have this problem.
+- **Fixed:** games whose installer only puts a shortcut on the desktop (no Start menu entry, as
+  many repacks do) were missing from the Library's **Installed apps**. Desktop shortcuts to
+  programs are listed there now too.
+
 ## 0.1.12 (2026-11-06)
 
 - **Now playing, redone:** the cover's colours glow behind the tile and faint bars in the

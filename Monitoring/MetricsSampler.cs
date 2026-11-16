@@ -142,15 +142,16 @@ public sealed class MetricsSampler : IDisposable
         return generated is null ? (null, false) : ("Idle", false);
     }
 
-    /// <summary>"RSR 1280×800" (the driver upscales a full-screen game, green), "Scaled 1280×800"
-    /// (a lower resolution simply stretched), "Native".</summary>
+    /// <summary>"RSR 1280×800" (the switch is on and a full-screen game runs below the screen's
+    /// size), "Scaled 1280×800" (a lower resolution simply stretched), "Native". Never green: the
+    /// driver doesn't say whether RSR is really the one stretching the picture.</summary>
     (string?, bool) Upscaling(IntPtr targetWindow)
     {
         var (kind, mode) = Scaling.Read(targetWindow, _amd()?.UpscalingOn == true);
         string size = $"{mode.Width}×{mode.Height}";
         return kind switch
         {
-            ScalingKind.Rsr => ($"RSR {size}", true),
+            ScalingKind.Rsr => ($"RSR {size}", false),
             ScalingKind.Scaled => ($"Scaled {size}", false),
             _ => ("Native", false),
         };

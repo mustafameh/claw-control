@@ -32,7 +32,11 @@ public sealed class DesktopInputBlocker
     const int WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202,
         WM_RBUTTONDOWN = 0x0204, WM_RBUTTONUP = 0x0205, WM_MBUTTONDOWN = 0x0207, WM_MBUTTONUP = 0x0208,
         WM_MOUSEWHEEL = 0x020A, WM_XBUTTONDOWN = 0x020B, WM_XBUTTONUP = 0x020C, WM_MOUSEHWHEEL = 0x020E;
-    const uint LLKHF_EXTENDED = 0x01, LLKHF_UP = 0x80;
+    const uint LLKHF_EXTENDED = 0x01, LLKHF_INJECTED = 0x10, LLKHF_UP = 0x80;
+
+    /// <summary>A text box in the panel is being typed in: keys sent by software (the touch
+    /// keyboard) reach it. The controller chip's keys are never injected, so they stay blocked.</summary>
+    public static volatile bool Typing;
     const uint TouchSignatureMask = 0xFFFFFF00, TouchSignature = 0xFF515700;
     const ushort ProbeKey = 0x87;  // F24: no keyboard has it, and the probe is swallowed anyway
     const int MouseIdBase = 0x1000;
@@ -311,7 +315,8 @@ public sealed class DesktopInputBlocker
                 // A held key repeats its press about 30 times a second without releasing; those
                 // repeats are dropped (the timer repeats a held direction at the gamepad's pace).
                 bool repeat = isPress && _held.Contains((int)info.VkCode);
-                swallow = marker != OwnInputMarker && !PassesThrough(info.VkCode) && Swallow(isPress, (int)info.VkCode);
+                bool typed = Typing && (info.Flags & LLKHF_INJECTED) != 0;
+                swallow = marker != OwnInputMarker && !typed && !PassesThrough(info.VkCode) && Swallow(isPress, (int)info.VkCode);
                 if (swallow && isPress && _open && !repeat)
                 {
                     command = PanelKeys.Translate(info.VkCode, info.ScanCode, extended) ?? Translate(info.VkCode);
