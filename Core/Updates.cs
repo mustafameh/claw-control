@@ -9,8 +9,7 @@ namespace ClawControl.Core;
 public sealed record UpdateInfo(string Version, string Notes, string SetupUrl, string? SumsUrl);
 
 /// <summary>
-/// New versions from GitHub Releases, the only place Claw Control connects to: at most once a
-/// day, just after the panel opens, in the background (a few seconds' limit; no connection, no
+/// New versions from GitHub Releases: at most once a day, just after the panel opens, in the background (a few seconds' limit; no connection, no
 /// answer: nothing happens). What it found is kept in settings, so the header's update icon
 /// stays until the update is installed. Installing downloads the release's setup, checks it
 /// against the release's SHA256SUMS.txt and runs it; the setup closes Claw Control, replaces

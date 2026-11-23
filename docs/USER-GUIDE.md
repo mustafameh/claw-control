@@ -115,9 +115,10 @@ turn the Library off (and on) with **Edit** on the Quick tab.
   game's icon), the last played first; the selected one's name and launcher are under them.
   They reach down to just above the taskbar (the next row peeks in) and glide row by row.
   A running game says **Playing**, and **A** goes back to it. **A** on another shows
-  **Starting…** until the game opens, then the panel closes. **X** opens the game's **Cover**
-  screen (below).
-- **Cover** (**X** on a game): the cover big at the top and the choices in a row under it: the
+  **Starting…** until the game opens, then the panel closes. When OptiScaler is available for
+  the selected game, press **X** for **Options** and **A** for **OptiScaler**, or move down to
+  **Change cover**. Otherwise **X** opens **Cover** directly.
+- **Cover** shows the cover big at the top and the choices in a row under it: the
   current cover, covers Steam's store suggests for the game's name (its own first, then close
   matches), its store art and screenshots, **Your pictures** and **Icon only**. Each one shows
   in the preview as soon as you move to it; **A** uses it, **B** goes back unchanged. **Your
@@ -146,10 +147,9 @@ AMD driver settings and the screen. Settings the driver doesn't support are hidd
 - **FPS limit**: 30-120 FPS in steps of 5, one step further is **Unlimited**. It uses Radeon
   Chill with the same minimum and maximum, which works in DirectX 12 games where AMD's older
   frame-rate limiter doesn't.
-- Four circles: **Frame gen** (AMD Fluid Motion Frames), **Upscaling** (Radeon Super
-  Resolution), **Sharpen** (Radeon Image Sharpening) and **FreeSync**.
-- **Upscaling sharpness** (only while Upscaling is on) and **Sharpness** (only while Sharpen is
-  on).
+- Four circles: **AFMF** (AMD Fluid Motion Frames, frame generation), **RSR** (Radeon Super
+  Resolution, upscaling), **Sharpen** (Radeon Image Sharpening) and **FreeSync**.
+- **RSR sharpness** (only while RSR is on) and **Sharpness** (only while Sharpen is on).
 - **Resolution**: 16:10 resolutions that fill the screen, then 16:9 ones (with black bars).
   Changing the resolution keeps the refresh rate when the new one supports it.
 - **Refresh rate**: what Windows offers for the current resolution.
@@ -157,6 +157,18 @@ AMD driver settings and the screen. Settings the driver doesn't support are hidd
   apply at once. Some older apps look blurry until you reopen them.
 - **Graphics memory**: how much RAM is set aside for the GPU (0.5-16 GB). It takes effect after a
   restart: **Restart now** appears, and it needs a second **A**.
+### OptiScaler beta
+
+Open **Graphics → OptiScaler** and choose **Enable OptiScaler beta** to try per-game upscaling on the A8. App updates leave this preference alone. The beta starts off for new and upgrading users. Enabling it lets you browse games. Each game needs its own install and confirmation. Online games may ban accounts for modified files.
+
+The first install downloads OptiScaler 0.9.5 from its official release and checks its SHA-256. Later installs can use the local cache offline. Choose FSR 3.1 or XeSS and follow the instruction for the game's own graphics menu. Save and restart the game after changing its configuration. Installed describes files on disk. Display scaling and AFMF in the overlay describe the driver and display.
+
+**Manage installed games** works from the desktop, including with the beta off. Disable loader parks the loader for a trial launch. Remove checks recorded file hashes and reports modified files or incomplete cleanup. Quit the game before either operation. If Claw Control added an Epic launch option, choose to restore or keep it before removal. Settings from earlier preview installs can be managed after their original receipt is verified. Use **Switch to FSR 3.1** on an older FSR 4 profile. New profiles keep frame generation off in this beta. Remove managed game installations before uninstalling Claw Control. The app uninstaller leaves files in game folders.
+
+> [!NOTE]
+> OptiScaler is a separate open-source project; whether it works well in a game is down to it and
+> the game. If a game misbehaves, **Remove** puts it back as it was. See
+> [OptiScaler problems](TROUBLESHOOTING.md#optiscaler-problems).
 
 > [!NOTE]
 > Frame generation, upscaling and the FPS limit are read by the driver when a game starts its

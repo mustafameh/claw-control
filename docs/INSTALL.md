@@ -18,7 +18,7 @@
 
 Optional:
 
-- **Upscaling (Radeon Super Resolution)** only appears in Claw Control after it has been switched
+- **RSR (Radeon Super Resolution)** only appears in Claw Control after it has been switched
   on **once** in AMD Software: Adrenalin Edition (a driver limitation). Open AMD Software, turn on
   Radeon Super Resolution, then restart Claw Control.
 - **Hibernate** only appears in the Apps & power menu when hibernation is enabled in Windows.
@@ -80,7 +80,9 @@ Claw Control connects to GitHub, once a day when you open the panel, to see whet
 version is out (it sends nothing about you or the device). The only other connections are for
 Library covers: when you add an Epic game, its cover picture is downloaded once from Epic's image
 server (Epic keeps only the link on the device) and kept on the Claw; and when you open a game's
-**Cover** screen, the game's name is looked up on Steam's store for suggested covers. When a new version is out, a green
+**Cover** screen, the game's name is looked up on Steam's store for suggested covers. And when you
+press **Install** on Graphics › OptiScaler, the pinned OptiScaler 0.9.5 release is downloaded from its
+GitHub page (checked against the built-in SHA-256). When a new version is out, a green
 sign shows next to the power sign in the panel's header; **Update now** downloads the setup
 from the GitHub release, checks it against the release's `SHA256SUMS.txt` and installs it.
 Nothing installs unless you press it.

@@ -9,6 +9,7 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 
 - Needs the .NET 10 SDK. Build: `dotnet build ClawControl.csproj -c Release` (self-contained,
   win-x64; users need no .NET installed).
+- Run `dotnet run --project tests/OptiScalerRecovery -c Release` for isolated install, legacy migration, controller-page actions, and recovery checks. It downloads the pinned package into the test output on first use and uses disposable game directories.
 - Target is `net10.0-windows10.0.19041.0` (WinRT media sessions for now playing; adds ~25 MB of
   `Microsoft.Windows.SDK.NET.dll`). Sound uses NAudio.Wasapi (Core Audio); FPS uses Intel
   PresentMon 2.6.0 (`Tools/PresentMon.exe`, runs only while the overlay shows FPS).
@@ -62,7 +63,7 @@ resident from login, so the panel opens instantly. How the hardware is driven:
 | `App.xaml.cs`, `Program.cs` | Startup: single instance, device check, building every service, signals |
 | `Core/` | Logging, settings, background workers (`HardwareWorker`, `LatestOnly`) |
 | `Hardware/` | Everything that talks to the device or Windows (firmware, controller chip, AMD, audio, display, radios…) |
-| `Features/` | The tabs and screens (Quick = `Performance/`, `Graphics/`, `Controller/`, `Apps/`, `Network/`, `Sound/`, `Overlay/`) |
+| `Features/` | The tabs and screens (Quick = `Performance/`, `Graphics/`, `Controller/`, `Apps/`, `Network/`, `Sound/`, `Overlay/`, `OptiScaler/`) |
 | `Input/` | Gamepad polling, the input blocker, key translation |
 | `Monitoring/` | Performance overlay: sensors, PresentMon, the overlay window |
 | `UI/` | The panel window, theme and building blocks, glass, selection drop, D-pad navigation |
@@ -150,6 +151,7 @@ resident from login, so the panel opens instantly. How the hardware is driven:
     program or install folder matches (`LibraryService.Running`), checked only while the tab is
     shown and every 0.7 s while a game is starting. Pages can be hidden
     (`OverlayWindow.SetPageShown`); the tabs are sized to their names.
+  - OptiScaler lives in Features/OptiScaler. Discovery starts when the enabled game list opens. Game installations and recovery use the player's standard token. The 0.9.5 package is pinned by URL and SHA-256. The protected records directory under the cache holds per-game manifests with file hashes. Installation records the plan before copying and installs the loader last. The cache and manifests survive Claw Control updates. Unfinished installations remain visible for recovery. Legacy settings are imported on first management after checking the old marker and loader.
   - Capture (`Features/Capture`, `Hardware/ScreenCapture`): Screenshot / Record tiles and the
     Capture screen. The panel closes first (`OverlayWindow.HideAndWaitAsync`); while recording,
     the panel and glass are excluded from capture (`SetWindowDisplayAffinity`).

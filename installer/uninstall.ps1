@@ -28,7 +28,17 @@ if (-not (Test-Admin)) {
 Write-Host 'Removing Claw Control' -ForegroundColor Cyan
 Set-Location $env:SystemRoot   # never stand in the folder being deleted
 & (Join-Path $PSScriptRoot 'task.ps1') -Remove
-if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+$managed = Get-ChildItem -LiteralPath (Join-Path $target 'OptiScaler\records') -Filter '*.json' -File -ErrorAction SilentlyContinue
+if ($managed) {
+    Write-Host 'Managed OptiScaler files remain in game folders. Reinstall Claw Control to disable or remove them. Recovery records will be kept.'
+    $installRoot = [IO.Path]::GetFullPath($target)
+    foreach ($entry in Get-ChildItem -LiteralPath $installRoot -Force) {
+        if ([IO.Path]::GetDirectoryName($entry.FullName) -ne $installRoot) { throw 'Unexpected installation path' }
+        if ($entry.Name -ne 'OptiScaler') { Remove-Item -LiteralPath $entry.FullName -Recurse -Force }
+    }
+} elseif (Test-Path -LiteralPath $target) {
+    Remove-Item -LiteralPath $target -Recurse -Force
+}
 
 if (-not $Yes -and (Test-Path $data)) {
     if ((Read-Host "`nAlso delete your Claw Control settings and log ($data)? (y/n)") -match '^(y|yes)$') {

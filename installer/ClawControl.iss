@@ -67,7 +67,7 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 
 [UninstallDelete]
 ; Leftovers of a zip install or an older version.
-Type: filesandordirs; Name: "{app}"
+Type: filesandordirs; Name: "{app}"; Check: CanRemoveRecoveryFolder
 
 [Code]
 const
@@ -130,10 +130,21 @@ begin
     '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
+// Preserve recovery records across uninstall and reinstall.
+function CanRemoveRecoveryFolder: Boolean;
+var
+  Receipt: TFindRec;
+begin
+  Result := not FindFirst(ExpandConstant('{app}\OptiScaler\records\*.json'), Receipt);
+  if not Result then FindClose(Receipt);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Data: String;
 begin
+  if (CurUninstallStep = usUninstall) and not CanRemoveRecoveryFolder then
+    SuppressibleMsgBox('Managed OptiScaler files remain in game folders. Reinstall Claw Control to disable or remove them. Recovery records will be kept.', mbInformation, MB_OK, IDOK);
   if CurUninstallStep = usPostUninstall then
   begin
     Data := ExpandConstant('{localappdata}\ClawControl');

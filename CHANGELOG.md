@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.14
+
+- The app switcher excludes Windows Desktop Window Manager and protects it from close requests.
+
+- Optional OptiScaler beta for offline games. Enable it from Graphics, then install per game. Includes FSR 3.1 and XeSS, a pinned and verified download, and desktop recovery with the beta off.
+- The recovery screen can park the loader, remove managed files, and restore Epic launch options added by this version. Game exit requests give the player time to save.
+- The overlay identifies AFMF and display scaling. Legacy preview users can switch an FSR 4 profile to FSR 3.1.
+- The Library knows a game is running when its launcher started it from another folder (Zenless
+  Zone Zero from Epic).
+- The Graphics tab's circles now say what they are: **AFMF** (was Frame gen) and **RSR** (was
+  Upscaling), with **RSR sharpness** under it.
+
 ## 0.1.13 (2026-11-16)
 
 - **Change a game's cover:** **X** on a game in the Library opens its **Cover** screen. Pick

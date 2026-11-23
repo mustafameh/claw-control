@@ -22,8 +22,8 @@ public static class Metrics
         new("fps", "FPS", "FPS", MetricSource.Fps),
         // At work, not just switched on: frames AMD's frame generation really added, and what
         // really upscales the picture (Monitoring/Scaling).
-        new("framegen", "Frame gen", "AFMF", MetricSource.Fps),
-        new("upscale", "Upscaling", "RES", MetricSource.Display),
+        new("framegen", "AFMF", "AFMF", MetricSource.Fps),
+        new("upscale", "Display scaling", "RES", MetricSource.Display),
         new("power", "Power", "PWR", MetricSource.Firmware),
         new("cputemp", "Temp", "TEMP", MetricSource.Firmware),
         new("fan", "Fan", "FAN", MetricSource.Firmware),

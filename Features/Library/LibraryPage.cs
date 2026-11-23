@@ -60,6 +60,10 @@ public sealed class LibraryPage : UserControl, IPage
     DateTime _startedAt;
     bool _shown, _checking;
 
+    public Features.OptiScaler.OptiScalerScreen? OptiScaler { get; set; }
+    readonly Button _gameGraphics;
+    LibraryItem? _described;
+    public IPage FindGames => _addGames.Finder;
     public string Id => "library";
     public string Title => "Library";
     public FrameworkElement View => this;
@@ -107,7 +111,14 @@ public sealed class LibraryPage : UserControl, IPage
             Child = Ui.Stack(none, find, installed, program),
         };
         _name.HorizontalAlignment = _detail.HorizontalAlignment = HorizontalAlignment.Center;
-        _caption = new StackPanel { Margin = new Thickness(0, 4, 0, 0), Children = { _name, _detail } };
+        _gameGraphics = Ui.Card(Ui.Text("OptiScaler", bold: true), () =>
+        {
+            if (_described is not { } game || OptiScaler?.CanManage(game) != true) return;
+            _returnTo = game;
+            OptiScaler.OpenLibraryGame(game);
+        }, minHeight: 40);
+        _gameGraphics.Visibility = Visibility.Collapsed;
+        _caption = new StackPanel { Margin = new Thickness(0, 4, 0, 0), Children = { _name, _detail, _gameGraphics } };
         Content = Ui.Stack(appsBand, Heading("Games", _count), _gamesView, _empty, _caption);
 
         _watch.Tick += (_, _) => Watch();
@@ -302,10 +313,18 @@ public sealed class LibraryPage : UserControl, IPage
         PanelInput.SetAction(button, () =>
         {
             _returnTo = game;
-            _cover.Game = game;
-            _openSubPage(_cover);
+            void OpenCover()
+            {
+                _cover.Game = game;
+                _openSubPage(_cover);
+            }
+
+            if (OptiScaler is { } scaler && scaler.CanManage(game))
+                _openSubPage(new GameOptions(game.Name, () => scaler.OpenLibraryGame(game), OpenCover));
+            else
+                OpenCover();
         });
-        PanelInput.SetActionHint(button, "Cover");
+        PanelInput.SetActionHint(button, OptiScaler?.CanManage(game) == true ? "Options" : "Cover");
         LoadPicture(game, CoverPixels, picture =>
         {
             if (picture == null) return;
@@ -454,6 +473,8 @@ public sealed class LibraryPage : UserControl, IPage
             view.Mark.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
             if (view.Starting != null) view.Starting.Visibility = starting && !running ? Visibility.Visible : Visibility.Collapsed;
             PanelInput.SetHint(view.Button, running ? "Switch" : item.Source == "App" ? "Open" : "Play");
+            if (_library.Games.Contains(item))
+                PanelInput.SetActionHint(view.Button, OptiScaler?.CanManage(item) == true ? "Options" : "Cover");
         }
         if (FocusedItem() is { } focused) Describe(focused);
     }
@@ -466,10 +487,14 @@ public sealed class LibraryPage : UserControl, IPage
             : _starting?.Key == item.Key ? "Starting…"
             : item.Source == "App" ? "App" : item.Source;
         ShowCaption(item.Name, detail);
+        _described = item;
+        _gameGraphics.Visibility = _library.Games.Contains(item) && OptiScaler?.CanManage(item) == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void ShowCaption(string name, string detail)
     {
+        _gameGraphics.Visibility = Visibility.Collapsed;
+        _described = null;
         _name.Text = name;
         _detail.Text = detail;
     }

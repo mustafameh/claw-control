@@ -12,6 +12,12 @@ following third-party software, each under its own license.
 | Microsoft.Windows.SDK.NET (C#/WinRT projection of the Windows SDK) | Media, Wi-Fi, Bluetooth and radio APIs | [Windows SDK license](https://aka.ms/WinSDKLicenseURL) (redistributable) |
 | [Simple Icons](https://simpleicons.org) (Xbox and PlayStation logo paths) | Controller mode icons | CC0 1.0 |
 
+**Not included:** [OptiScaler](https://github.com/optiscaler/OptiScaler) (GPL-3.0) is not part of
+Claw Control or its release package. When you press Install on Graphics › OptiScaler, Claw Control
+downloads OptiScaler's own release from its GitHub page and copies it, unchanged, into the chosen
+game's folder. That release carries its own licenses (OptiScaler: GPL-3.0; it bundles AMD
+FidelityFX (MIT), Intel XeSS (Intel's license), fakenvapi (MIT) and others); see its repository.
+
 Xbox is a trademark of Microsoft Corporation. PlayStation is a trademark of Sony Interactive
 Entertainment Inc. MSI, MSI Center M and Claw are trademarks of Micro-Star International Co.,
 Ltd. AMD, Radeon, FreeSync and ADLX are trademarks of Advanced Micro Devices, Inc. Claw Control

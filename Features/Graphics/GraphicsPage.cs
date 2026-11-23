@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
+using ClawControl.Features.OptiScaler;
 using ClawControl.Hardware;
 using ClawControl.UI;
 
@@ -12,7 +13,8 @@ namespace ClawControl.Features.Graphics;
 /// The Graphics tab: FPS limit bar (one step past 120 = Unlimited, the limiter off), circles for
 /// frame generation, upscaling, sharpening and FreeSync (each only if the driver has it), the
 /// sharpness bar (only while sharpening is on), then rows that open the resolution, refresh
-/// rate, Windows scaling and graphics memory pickers. Labels and values only.
+/// rate, Windows scaling and graphics memory pickers, and OptiScaler (per game). Labels and
+/// values only.
 /// </summary>
 public sealed class GraphicsPage : UserControl, IPage
 {
@@ -22,8 +24,10 @@ public sealed class GraphicsPage : UserControl, IPage
     readonly GraphicsService _gfx;
     readonly FillSlider _fps, _upscalingSharpness, _sharpness;
     readonly Toggle _frameGen, _upscaling, _sharpen, _freeSync;
-    readonly ListRow _resolution, _refresh, _scaling, _memory;
+    readonly ListRow _resolution, _refresh, _scaling, _memory, _optiScaler;
     readonly PickerScreen[] _screens;
+    readonly OptiScalerScreen _optiScalerScreen;
+    readonly OptiScalerService _optiScalerService;
     readonly Button _restart;
     readonly TextBlock _error;
     readonly DispatcherTimer _disarm = new() { Interval = TimeSpan.FromSeconds(4) };
@@ -34,9 +38,11 @@ public sealed class GraphicsPage : UserControl, IPage
     public string Title => "Graphics";
     public FrameworkElement View => this;
 
-    public GraphicsPage(GraphicsService gfx, Action<IPage> openSubPage)
+    public GraphicsPage(GraphicsService gfx, Action<IPage> openSubPage, OptiScalerScreen optiScaler, OptiScalerService optiScalerService)
     {
         _gfx = gfx;
+        _optiScalerScreen = optiScaler;
+        _optiScalerService = optiScalerService;
 
         _fps = Ui.Slider("", "FPS limit", NoLimit, 5);
         _fps.Minimum = MinFps;
@@ -46,8 +52,8 @@ public sealed class GraphicsPage : UserControl, IPage
             if (!_refreshing) _gfx.SetFpsLimit(e.NewValue >= NoLimit ? 0 : (int)Math.Round(e.NewValue));
         };
 
-        _frameGen = new Toggle(Ui.LineIcon("FrameGenIcon", 20), "#FFBF5AF2", "Frame gen", () => _gfx.SetFrameGen(!_gfx.Amd.FrameGenOn));
-        _upscaling = new Toggle(Ui.LineIcon("UpscaleIcon", 20), "#FF30B0C7", "Upscaling", () => _gfx.SetUpscaling(!_gfx.Amd.UpscalingOn));
+        _frameGen = new Toggle(Ui.LineIcon("FrameGenIcon", 20), "#FFBF5AF2", "AFMF", () => _gfx.SetFrameGen(!_gfx.Amd.FrameGenOn));
+        _upscaling = new Toggle(Ui.LineIcon("UpscaleIcon", 20), "#FF30B0C7", "RSR", () => _gfx.SetUpscaling(!_gfx.Amd.UpscalingOn));
         _sharpen = new Toggle(Ui.LineIcon("SharpenIcon", 20), "#FFFF9F0A", "Sharpen", _gfx.ToggleSharpening);
         _freeSync = new Toggle(Ui.LineIcon("FreeSyncIcon", 20), "#FFFF453A", "FreeSync", () => _gfx.SetFreeSync(!_gfx.Amd.FreeSyncOn));
         var toggles = new UniformGrid { Rows = 1, Margin = new Thickness(4, 10, 4, 4) };
@@ -55,7 +61,7 @@ public sealed class GraphicsPage : UserControl, IPage
 
         // Each sharpness bar is only shown while its circle is on: upscaling sharpens what it
         // stretches; the Sharpen circle is a separate filter for any game.
-        _upscalingSharpness = Ui.Slider(null, "Upscaling sharpness", 100, 5);
+        _upscalingSharpness = Ui.Slider(null, "RSR sharpness", 100, 5);
         _upscalingSharpness.LineIcon = (Geometry)FindResource("UpscaleIcon");
         _upscalingSharpness.ValueChanged += (_, e) =>
         {
@@ -103,12 +109,15 @@ public sealed class GraphicsPage : UserControl, IPage
         _scaling.Button.Click += (_, _) => openSubPage(scaling);
         _memory = new ListRow(Ui.Glyph("", 16), Ui.Hex("#FF34C759"), "Graphics memory");
         _memory.Button.Click += (_, _) => openSubPage(memory);
+        _optiScaler = new ListRow(Ui.LineIcon("UpscaleIcon", 16), Ui.Hex("#FF5E5CE6"), "OptiScaler");
+        _optiScaler.Button.Click += (_, _) => openSubPage(optiScaler);
+        optiScaler.Changed += Refresh;
 
         // Errors are the only status text.
         _error = new TextBlock { Style = Ui.Style("CardDetail"), Margin = new Thickness(6, 6, 0, 0), TextWrapping = TextWrapping.Wrap,
             Text = "AMD's graphics settings aren't available.", Visibility = Visibility.Collapsed };
 
-        Content = Ui.Stack(_fps, toggles, _upscalingSharpness, _sharpness, ListRow.Card(_resolution, _refresh, _scaling, _memory), _error);
+        Content = Ui.Stack(_fps, toggles, _upscalingSharpness, _sharpness, ListRow.Card(_resolution, _refresh, _scaling, _memory), ListRow.Card(_optiScaler), _error);
 
         _gfx.Changed += () => Dispatcher.BeginInvoke(Refresh);
         Refresh();
@@ -120,7 +129,7 @@ public sealed class GraphicsPage : UserControl, IPage
 
     public FrameworkElement DefaultFocus => _fps;
 
-    public IEnumerable<IPage> Screens => _screens;
+    public IEnumerable<IPage> Screens => [.. _screens, _optiScalerScreen];
 
     public void OnShown()
     {
@@ -164,6 +173,8 @@ public sealed class GraphicsPage : UserControl, IPage
         _scaling.Value.Text = _gfx.Scale.Percent > 0 ? $"{_gfx.Scale.Percent}%" : "";
         _memory.View.Visibility = Shown(amd.MemoryOptions.Count > 0);
         _memory.Value.Text = amd.MemoryChoice >= 0 ? MemoryText(amd.MemoryOptions[amd.MemoryChoice]) : "";
+        int games = _optiScalerService.Installs.Count;
+        _optiScaler.Value.Text = games == 0 ? (_optiScalerService.Enabled ? "Beta" : "Beta · Off") : games == 1 ? "1 game" : $"{games} games";
         _error.Visibility = Shown(!amd.Available && _gfx.Modes.Count > 0);
         ShowRestart();
         foreach (var screen in _screens) screen.Refresh();

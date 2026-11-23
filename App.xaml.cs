@@ -7,6 +7,7 @@ using ClawControl.Features.Capture;
 using ClawControl.Features.Graphics;
 using ClawControl.Features.Library;
 using ClawControl.Features.Network;
+using ClawControl.Features.OptiScaler;
 using ClawControl.Features.Overlay;
 using ClawControl.Features.Performance;
 using ClawControl.Features.Sound;
@@ -132,11 +133,15 @@ public partial class App : Application
         performancePage.ArrangeTiles();
         performancePage.PanelPlacementChanged += () => _overlay?.ApplyPlacement();
         _graphics = new GraphicsService(_settings);
-        var libraryPage = new LibraryPage(new LibraryService(_settings), openSub, () => _overlay?.CloseScreens(), closePanel);
+        var library = new LibraryService(_settings);
+        var libraryPage = new LibraryPage(library, openSub, () => _overlay?.CloseScreens(), closePanel);
+        var optiScaler = new OptiScalerService(_settings, library);
+        var optiScalerScreen = new OptiScalerScreen(optiScaler, () => _overlay?.FrontGame, openSub, closePanel, () => openSub(libraryPage.FindGames));
+        libraryPage.OptiScaler = optiScalerScreen;
         // Tabs left to right (the user's order, 2026-11-06): Quick in the middle.
         var pages = new IPage[]
         {
-            new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page)),
+            new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page), optiScalerScreen, optiScaler),
             libraryPage,
             performancePage,
             new ControllerPage(_controller, page => _overlay?.OpenSubPage(page)),
@@ -145,6 +150,8 @@ public partial class App : Application
         {
             SaveSnapshots = e.Args.Contains("--snapshots"), AppsMenu = appsMenu, Switcher = new AppSwitcher(), Updater = new Updates(_settings),
         };
+        // A game in front: remember its real program for its Library entry (after the panel shows).
+        _overlay.FrontGameSeen += app => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => optiScaler.Learn(app));
         // The Library tab only while it's on (Edit on the Quick tab).
         _overlay.SetPageShown(libraryPage, _settings.LibraryTab);
         performancePage.LibraryTabChanged += () => _overlay?.SetPageShown(libraryPage, _settings.LibraryTab);

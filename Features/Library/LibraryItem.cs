@@ -14,6 +14,9 @@ public sealed class LibraryItem
     public string? Folder { get; set; }
     /// <summary>Its program file, for the icon (and to tell it's running).</summary>
     public string? Program { get; set; }
+    /// <summary>The game's own program, learned when the panel was opened over it: launchers
+    /// often start a game that lives somewhere else (HoYoPlay via Epic). OptiScaler goes next to it.</summary>
+    public string? GameProgram { get; set; }
     /// <summary>Its shell id (Start menu apps, Xbox games), for the icon and to tell it's running.</summary>
     public string? AppId { get; set; }
     /// <summary>Its cover picture on this Claw (Steam's art), or a square logo (Xbox).</summary>

@@ -57,6 +57,7 @@ public static class RunningApps
     {
         if (window == IntPtr.Zero || !IsApp(window) || Identify(window) is not { } who) return null;
         string? path = who.Hosted ? null : ImagePath(who.Pid);
+        if (string.Equals(Path.GetFileNameWithoutExtension(path), "dwm", StringComparison.OrdinalIgnoreCase)) return null;
         Known? known;
         lock (KnownApps) KnownApps.TryGetValue(KnownKey(who, path), out known);
         string name = known?.Name ?? (path != null ? System.IO.Path.GetFileNameWithoutExtension(path) : GetWindowTitle(window));
@@ -313,6 +314,7 @@ public static class RunningApps
         try
         {
             if (processes.NameOf(who.Pid) is not { } processName) return null;  // gone already
+            if (processName.Equals("dwm", StringComparison.OrdinalIgnoreCase)) return null;
             string? path = who.Hosted ? null : ImagePath(who.Pid);
             var known = Learn(who, path, processName, windows[0]);
             // A suspended Store app's own process isn't known: no number.
@@ -351,10 +353,11 @@ public static class RunningApps
     {
         try
         {
+            using var process = System.Diagnostics.Process.GetProcessById(app.ProcessId);
+            if (process.ProcessName.Equals("dwm", StringComparison.OrdinalIgnoreCase)) return;
             foreach (var window in app.Windows) PostMessage(window, WmClose, IntPtr.Zero, IntPtr.Zero);
             // Windows' frame host serves every Store app: closing the window is all it takes.
             if (app.Hosted) return;
-            using var process = System.Diagnostics.Process.GetProcessById(app.ProcessId);
             if (process.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase)) return;
             if (!app.NotResponding && await Task.Run(() => process.WaitForExit((int)wait.TotalMilliseconds))) return;
             Log.Info($"Force-closing {app.Name}");

@@ -217,6 +217,7 @@ public sealed class LibraryService(Settings settings)
         if (item.AppId != null && string.Equals(app.AppId, item.AppId, StringComparison.OrdinalIgnoreCase)) return true;
         if (app.Path == null) return false;
         if (item.Program != null && string.Equals(app.Path, item.Program, StringComparison.OrdinalIgnoreCase)) return true;
+        if (item.GameProgram != null && string.Equals(app.Path, item.GameProgram, StringComparison.OrdinalIgnoreCase)) return true;
         return item.Folder != null && app.Path.StartsWith(Path.TrimEndingDirectorySeparator(item.Folder) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -5,7 +5,8 @@
 - ["Claw Control only works on the MSI Claw A8"](#claw-control-only-works-on-the-msi-claw-a8)
 - [The controller doesn't move the selection](#the-controller-doesnt-move-the-selection)
 - [A graphics setting doesn't change my game](#a-graphics-setting-doesnt-change-my-game)
-- [Upscaling, Frame gen or another circle is missing](#upscaling-frame-gen-or-another-circle-is-missing)
+- [RSR, AFMF or another circle is missing](#rsr-afmf-or-another-circle-is-missing)
+- [OptiScaler problems](#optiscaler-problems)
 - [Hibernate is missing](#hibernate-is-missing)
 - [The overlay shows "–" for FPS](#the-overlay-shows---for-fps)
 - [Power limits went back to MSI's values](#power-limits-went-back-to-msis-values)
@@ -66,15 +67,21 @@ through a private channel; the public driver interface Claw Control uses can't.)
 Resolution changes apply immediately to the desktop; full-screen games usually keep their own
 resolution setting.
 
-## Upscaling, Frame gen or another circle is missing
+## RSR, AFMF or another circle is missing
 
 Circles are hidden when the driver reports the feature as unsupported.
 
-- **Upscaling** (Radeon Super Resolution) stays unsupported until it has been switched on once in
+- **RSR** (Radeon Super Resolution) stays unsupported until it has been switched on once in
   **AMD Software: Adrenalin Edition**. Turn it on there, then restart Claw Control.
 - Others: update the graphics driver from MSI's support page for the Claw A8.
 - If the Graphics tab says "AMD's graphics settings aren't available", the AMD driver library
   wasn't found: reinstall the graphics driver.
+
+## OptiScaler problems
+
+If a game crashes, leave the game closed and open Graphics → OptiScaler from the desktop. Select it under Manage installed games. Disable loader lets you try a launch with the loader parked. Remove checks each recorded file before deleting it. If cleanup reports a locked file, quit the game and retry. If a file changed, review the filename, then choose **Finish removal and keep changed files** or retry after resolving the conflict. A launch option set before this release can be reviewed in Epic's own launch settings.
+
+If the game looks unchanged, check its graphics menu and restart after saving. Check setup again refreshes detection. Installed confirms the presence of a management record. Runtime activation and performance depend on the game. [OptiScaler guide](USER-GUIDE.md#optiscaler-beta)
 
 ## Hibernate is missing
 
@@ -163,8 +170,9 @@ these rights once, at install, through a scheduled task, so there's no prompt wh
 No data is collected. Once a day, when the panel opens, it asks GitHub whether a new version is
 out (and downloads it only if you press Update now). When you add an Epic game to the Library,
 its cover picture is downloaded once from Epic's image server; when you open a game's **Cover**
-screen, its name is looked up on Steam's store for suggested covers. Settings, covers and the log stay
-on the device.
+screen, its name is looked up on Steam's store for suggested covers. When you press **Install** on
+Graphics › OptiScaler, OptiScaler is downloaded from its GitHub page. Settings, covers and the log
+stay on the device.
 
 **How much battery does it use?**
 With the panel closed, about 0.3 % of one CPU core: it polls nothing and waits for the MSI

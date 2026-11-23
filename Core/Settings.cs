@@ -57,6 +57,9 @@ public sealed class Settings
     public UpdateInfo? Update { get; set; }
     /// <summary>The version whose Update screen was already shown once.</summary>
     public string UpdatePrompted { get; set; } = "";
+    /// <summary>Games Claw Control put OptiScaler into: what it added and the choices (Graphics tab › OptiScaler).</summary>
+    public bool OptiScalerEnabled { get; set; }
+    public List<Features.OptiScaler.OptiScalerInstall> OptiScalerGames { get; set; } = new();
     /// <summary>Log every press, key and command too (for bug reports; see Log.Detail).</summary>
     public bool DetailedLog { get; set; }
 

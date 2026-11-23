@@ -351,6 +351,8 @@ public partial class OverlayWindow : Window
         // full screen hides every window over it: the panel takes the focus so the game steps
         // out, and gives it back on closing.
         bool fullScreen = _frontApp != null && Monitoring.Scaling.FillsScreen(frontWindow);  // not the desktop
+        _frontFillsScreen = fullScreen;
+        if (fullScreen && _frontApp != null) FrontGameSeen?.Invoke(_frontApp);
         _giveBackTo = fullScreen && Monitoring.Scaling.ExclusiveFullScreen() ? frontWindow : IntPtr.Zero;
         _gameKeepsFocus = fullScreen && _giveBackTo == IntPtr.Zero;
         // Never activated while it's over the game (not by a focus call either), until it closes.
@@ -641,6 +643,16 @@ public partial class OverlayWindow : Window
 
     /// <summary>The app that was in front when the panel opened (captures are named after it).</summary>
     public string? FrontAppName => _frontApp?.Name;
+
+    bool _frontFillsScreen;
+
+    /// <summary>The app in front when the panel opened, if it fills the screen (a game, as far as
+    /// the panel can tell): Graphics › OptiScaler offers it first.</summary>
+    public RunningApp? FrontGame => _frontFillsScreen ? _frontApp : null;
+
+    /// <summary>The panel opened over a full-screen app (a game): the Library learns where that
+    /// game's program really is (OptiScaler).</summary>
+    public event Action<RunningApp>? FrontGameSeen;
 
     /// <summary>While Claw Control records, the panel and its glass stay out of the picture
     /// (they can be opened to stop it). Other recorders still see them.</summary>

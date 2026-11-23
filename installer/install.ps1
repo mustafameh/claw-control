@@ -73,7 +73,8 @@ if (-not (Test-Path (Join-Path $app 'ClawControl.exe'))) { Stop-Install "ClawCon
 
 Write-Host "`nInstalling to $target ..."
 & (Join-Path $PSScriptRoot 'task.ps1') -Remove   # quits a running copy first
-robocopy $app $target /MIR /NJH /NJS /NFL /NDL /NP /XF *.pdb | Out-Null
+# OptiScaler\ is the downloaded OptiScaler release (Graphics › OptiScaler): kept, not mirrored away.
+robocopy $app $target /MIR /NJH /NJS /NFL /NDL /NP /XF *.pdb /XD OptiScaler | Out-Null
 if ($LASTEXITCODE -ge 8) { Stop-Install "Copying failed (robocopy exit code $LASTEXITCODE)." }
 
 # Keep the uninstall scripts with the program, so it can be removed without the zip.

@@ -16,7 +16,11 @@ Only the latest release gets fixes.
 
 ## What Claw Control does with its rights
 
-- It has no network code and accepts no network input.
+- It accepts no network input. It only makes outgoing HTTPS requests: the daily update check and
+  update download (GitHub), Library covers (Epic's image server, Steam's store) and, only when
+  you press Install on Graphics › OptiScaler, the pinned OptiScaler release (GitHub). Downloads are
+  verified against their expected checksums before anything runs or is copied.
+- Game and Epic configuration writes use the player's standard token. The protected package cache also holds the recovery manifests. Removal checks recorded hashes and preserves changed files.
 - It installs to `C:\Program Files\ClawControl`, which only administrators can change, and starts
   from a scheduled task that only an administrator can change.
 - It listens for three named events in the user's session (`Local\ClawControl.Show`,
