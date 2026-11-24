@@ -22,6 +22,9 @@ static class NativeWindow
     public static void HideFromAltTab(IntPtr hwnd) =>
         SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
 
+    public static void MakeClickThrough(IntPtr hwnd) =>
+        SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW | 0x20 | 0x08000000);
+
     /// <summary>
     /// Takes the foreground from the game so it stops reacting to the controller while the
     /// panel is open. Windows normally refuses this to background apps.

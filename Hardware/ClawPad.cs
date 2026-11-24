@@ -78,29 +78,26 @@ public sealed class ClawPad : IDisposable
         try
         {
             ReadModeCore();
-            var block = new byte[ProfileLength];
-            for (int offset = 0; offset < ProfileLength; offset += ChunkLength)
-            {
-                int length = Math.Min(ChunkLength, ProfileLength - offset);
-                int off = offset;
-                var reply = Request(new byte[] { CmdReadProfile, 0, (byte)(off >> 8), (byte)off, (byte)length },
-                    r => r[4] == CmdReadProfileReply && r[6] == (byte)(off >> 8) && r[7] == (byte)off && r[8] == length);
-                if (reply == null) throw new IOException($"No reply for settings at {off}");
-                Array.Copy(reply, 9, block, off, length);
-            }
+            var block = ReadProfile();
             bool restore;
             lock (_gate)
             {
                 _chip = block;
                 // Keep changes the user made before the read finished.
-                _desired ??= block.ToArray();
-                restore = _overlay == null && ApplyRestorePoint();
+                restore = _overlay == null && File.Exists(RestorePath);
+                if (restore)
+                {
+                    var desired = block.ToArray();
+                    ReadRestorePoint(desired, _desired);
+                    _desired = desired;
+                }
+                else _desired ??= block.ToArray();
             }
             Log.Info($"Controller settings read (mode {Mode})");
             if (restore)
             {
                 Log.Info("Claw Control had stopped with the panel open: putting the controller's buttons back");
-                if (Flush(save: false)) SaveToRom();
+                if (!Flush(save: false, maxGap: 1) || !ReadProfile().SequenceEqual(_chip!) || !SaveToRom()) return false;
                 DeleteRestorePoint();
             }
             Changed?.Invoke();
@@ -112,6 +109,75 @@ public sealed class ClawPad : IDisposable
             return false;
         }
     }
+
+    byte[] ReadProfile()
+    {
+        var block = new byte[ProfileLength];
+        for (int offset = 0; offset < ProfileLength; offset += ChunkLength)
+        {
+            int length = Math.Min(ChunkLength, ProfileLength - offset);
+            int off = offset;
+            var reply = Request(new byte[] { CmdReadProfile, 0, (byte)(off >> 8), (byte)off, (byte)length },
+                r => r[4] == CmdReadProfileReply && r[6] == (byte)(off >> 8) && r[7] == (byte)off && r[8] == length);
+            if (reply == null) throw new IOException($"No reply for settings at {off}");
+            Array.Copy(reply, 9, block, off, length);
+        }
+        return block;
+    }
+
+    internal Task<PanelButton[]> ScanPanelMappingsAsync() => _worker.Run(() =>
+    {
+        // During normal navigation the live chip always contains the panel mapping.
+        var profile = _overlay == null ? ReadProfile() : Profile!;
+        return PanelButton.All.Where(button => button.MatchesPanel(profile)).ToArray();
+    });
+
+    internal Task<PanelButton[]> RepairPanelMappingsAsync(PanelButton[] selected, bool manual = false) => _worker.Run(() =>
+    {
+        lock (_gate)
+            if (_overlay != null || _overlayWanted != null)
+                throw new IOException("The panel reopened. Close it and try again.");
+
+        if (File.Exists(RestorePath))
+        {
+            try
+            {
+                _ = RestoreRanges().ToArray();
+                if (!Load() || File.Exists(RestorePath))
+                    throw new IOException("The saved profile could not be restored. Reconnect the controller and retry.");
+            }
+            catch (InvalidDataException)
+            {
+                // Keep the damaged bytes for diagnosis. The explicit repair uses only known
+                // button fields from this controller's current profile.
+                File.Move(RestorePath, RestorePath + "." + Guid.NewGuid().ToString("N") + ".damaged");
+            }
+        }
+
+        var actual = ReadProfile();
+        var expected = actual.ToArray();
+        var changed = new List<PanelButton>();
+        foreach (var button in selected.Distinct())
+            if ((manual || button.MatchesPanel(actual)) && button.RestoreNative(expected)) changed.Add(button);
+        if (changed.Count == 0) return Array.Empty<PanelButton>();
+        lock (_gate)
+        {
+            var previous = _desired;
+            _desired = expected.ToArray();
+            _chip = actual;
+            if (!SaveRestorePoint(actual))
+            {
+                _desired = previous;
+                throw new IOException("Could not create the repair record.");
+            }
+        }
+        if (!Flush(save: false, maxGap: 1)) throw new IOException("The controller did not accept the repair.");
+        if (!ReadProfile().SequenceEqual(expected)) throw new IOException("Controller read-back differed. Retry the repair.");
+        if (!SaveToRom()) throw new IOException("The controller did not confirm the save.");
+        DeleteRestorePoint();
+        Changed?.Invoke();
+        return changed.ToArray();
+    });
 
     public Task<int?> ReadModeAsync() => _worker.Run(() =>
     {
@@ -167,16 +233,23 @@ public sealed class ClawPad : IDisposable
     byte[]? Target() => _desired == null ? null : _overlay?.Invoke(_desired) ?? _desired;
 
     /// <summary>Writes what differs; <paramref name="save"/>: save it shortly after (or once the overlay is off).</summary>
-    bool Flush(bool save = true)
+    bool Flush(bool save = true, int maxGap = ChunkLength - 1)
     {
         List<(int Start, byte[] Data)> runs;
         lock (_gate)
         {
             _flushQueued = false;
             if (Target() is not { } target || _chip == null) return false;
+            if (save && _overlay != null)
+            {
+                // A button edit can be entirely hidden by the overlay. Remember it for
+                // recovery and for the final save even when it causes no live HID write.
+                if (!SaveRestorePoint(target)) return false;
+                _saveAfterOverlay = true;
+            }
             // Nearby changes go as one write (up to a message's worth of bytes in between): the
             // panel mapping takes 4 messages instead of 18.
-            runs = Differences(_chip, target, ChunkLength - 1);
+            runs = Differences(_chip, target, maxGap);
         }
         if (runs.Count == 0) return true;
         try
@@ -208,6 +281,7 @@ public sealed class ClawPad : IDisposable
         }
         catch (Exception ex)
         {
+            lock (_gate) _chip = null;
             Log.Error("Writing controller settings", ex);
             return false;
         }
@@ -230,22 +304,29 @@ public sealed class ClawPad : IDisposable
         return runs;
     }
 
-    void SaveToRom()
+    bool SaveToRom()
     {
         // Saving copies the chip's whole working memory, overlay included: wait until it's off.
         lock (_gate)
+        {
+            if (_chip == null || _desired == null) return false;
             if (_overlay != null)
             {
                 _saveAfterOverlay = true;
-                return;
+                return false;
             }
+        }
         try
         {
-            if (Request(new byte[] { CmdSyncToRom }, IsAck) != null) Log.Info("Controller settings saved");
+            if (Request(new byte[] { CmdSyncToRom }, IsAck) == null)
+                throw new IOException("Controller didn't confirm saving its profile");
+            Log.Info("Controller settings saved");
+            return true;
         }
         catch (Exception ex)
         {
             Log.Error("Saving controller settings", ex);
+            return false;
         }
     }
 
@@ -279,16 +360,13 @@ public sealed class ClawPad : IDisposable
     /// <summary>Puts an overlay on, or swaps it for another (writing only what differs).</summary>
     void BeginOverlay(Func<byte[], byte[]> overlay)
     {
-        if (Profile == null && !Load()) return;  // panel opened before the first read
+        if ((_chip == null || _desired == null || (_overlay == null && File.Exists(RestorePath))) && !Load()) return;
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        byte[] undo;
         lock (_gate)
         {
+            if (!SaveRestorePoint(overlay(_desired!))) return;
             _overlay = overlay;
-            undo = RestorePoint(_desired!, overlay(_desired!));
         }
-        try { File.WriteAllBytes(RestorePath, undo); }
-        catch (Exception ex) { Log.Error("Saving the controller's restore point", ex); }
         if (Flush(save: false)) Log.Detail($"Panel mapping on ({clock.ElapsedMilliseconds} ms)");
     }
 
@@ -296,10 +374,12 @@ public sealed class ClawPad : IDisposable
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         lock (_gate) _overlay = null;
-        if (!Flush(save: false))
+        if (_chip == null || !Flush(save: false))
         {
-            Thread.Sleep(300);
-            if (!Flush(save: false)) return;  // the restore point stays for the next start
+            // A write may have reached the chip even if its acknowledgement was lost.
+            // Read the actual profile before retrying; Load also commits the pending recovery.
+            Load();
+            return;
         }
         Log.Detail($"Panel mapping off ({clock.ElapsedMilliseconds} ms)");
         bool save;
@@ -308,7 +388,7 @@ public sealed class ClawPad : IDisposable
             save = _saveAfterOverlay;
             _saveAfterOverlay = false;
         }
-        if (save) SaveToRom();
+        if (save && !SaveToRom()) return;
         DeleteRestorePoint();
     }
 
@@ -325,38 +405,63 @@ public sealed class ClawPad : IDisposable
         return 0;
     }
 
-    /// <summary>The wanted bytes wherever the overlay differs: [offset (2), length (2), bytes] per run.</summary>
-    static byte[] RestorePoint(byte[] wanted, byte[] overlaid)
+    /// <summary>Atomically keep the desired bytes under every mapping used during this panel session.</summary>
+    bool SaveRestorePoint(byte[] target)
     {
-        var record = new List<byte>();
-        foreach (var (start, data) in Differences(overlaid, wanted))
-        {
-            record.AddRange(new[] { (byte)(start >> 8), (byte)start, (byte)(data.Length >> 8), (byte)data.Length });
-            record.AddRange(data);
-        }
-        return record.ToArray();
-    }
-
-    /// <summary>Copies a restore point left by a stop with the overlay on into the wanted block. Call with _gate held.</summary>
-    bool ApplyRestorePoint()
-    {
-        if (_desired == null || !File.Exists(RestorePath)) return false;
         try
         {
-            var record = File.ReadAllBytes(RestorePath);
-            for (int i = 0; i + 4 <= record.Length;)
+            var wanted = _desired!;
+            var covered = target.ToArray();
+            // MSI may have persisted an earlier overlay even after RAM switches to live triggers.
+            if (_overlay != null)
+                foreach (var (start, data) in RestoreRanges())
+                    for (int i = start; i < start + data.Length; i++)
+                        covered[i] = (byte)~wanted[i];
+            var record = new List<byte>();
+            foreach (var (start, data) in Differences(covered, wanted, maxGap: 1))
             {
-                int start = record[i] << 8 | record[i + 1], length = record[i + 2] << 8 | record[i + 3];
-                if (i + 4 + length > record.Length || start + length > ProfileLength) break;
-                Array.Copy(record, i + 4, _desired, start, length);
-                i += 4 + length;
+                record.AddRange(new[] { (byte)(start >> 8), (byte)start, (byte)(data.Length >> 8), (byte)data.Length });
+                record.AddRange(data);
             }
+            using (var file = File.Create(RestorePath + ".tmp"))
+            {
+                file.Write(record.ToArray());
+                file.Flush(flushToDisk: true);
+            }
+            File.Move(RestorePath + ".tmp", RestorePath, overwrite: true);
             return true;
         }
         catch (Exception ex)
         {
-            Log.Error("Reading the controller's restore point", ex);
+            Log.Error("Saving the controller's restore point", ex);
             return false;
+        }
+    }
+
+    /// <summary>Decode into a private copy, so a truncated record cannot partially change the desired profile.</summary>
+    static void ReadRestorePoint(byte[] desired, byte[]? currentDesired)
+    {
+        foreach (var (start, data) in RestoreRanges())
+        {
+            if (currentDesired == null) data.CopyTo(desired, start);
+            else Array.Copy(currentDesired, start, desired, start, data.Length);
+        }
+    }
+
+    static IEnumerable<(int Start, byte[] Data)> RestoreRanges()
+    {
+        var record = File.ReadAllBytes(RestorePath);
+        int previousEnd = 0;
+        for (int i = 0; i < record.Length;)
+        {
+            if (record.Length - i < 4) throw new InvalidDataException("Incomplete controller restore header");
+            int start = record[i] << 8 | record[i + 1], length = record[i + 2] << 8 | record[i + 3];
+            i += 4;
+            if (length == 0 || length > record.Length - i || start < previousEnd || start + length > ProfileLength)
+                throw new InvalidDataException("Invalid controller restore range");
+            yield return (start, record[i..(i + length)]);
+            previousEnd = start + length;
+            i += length;
         }
     }
 

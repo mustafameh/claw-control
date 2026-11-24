@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Hardware/ClawPad.cs" />
+    <Compile Include="../../Hardware/PanelButton.cs" />
+    <Compile Include="../../Input/PanelKeys.cs" />
+    <Compile Include="../../Input/GamepadInput.cs" />
+    <Compile Include="../../Core/HardwareWorker.cs" />
+    <Compile Include="../../Core/Log.cs" />
+  </ItemGroup>
+</Project>

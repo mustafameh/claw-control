@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.15
+
+- Controller recovery keeps the saved button mappings until the chip confirms restoration.
+- Controller → Repair game buttons can restore selected game inputs to their native functions even if the original backup is missing. Choose buttons manually for custom assignments and turbo.
+- After the panel closes, a progress notice shows the repair result and identifies buttons already at default.
+
 ## 0.1.14
 
 - The app switcher excludes Windows Desktop Window Manager and protects it from close requests.

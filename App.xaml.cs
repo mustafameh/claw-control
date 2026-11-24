@@ -102,6 +102,8 @@ public partial class App : Application
         var media = new MediaService();
         _pad = new ClawPad();
         _controller = new ControllerService(_pad, _settings);
+        var repairNotice = new RepairNotice();
+        _controller.RepairFeedback += repairNotice.Show;
         var performancePage = new PerformancePage(_performance, _brightness, _audio, media, _settings);
         var soundPage = new SoundPage(_audio);
         performancePage.OpenSoundRequested += () => _overlay?.OpenSubPage(soundPage);
@@ -144,7 +146,7 @@ public partial class App : Application
             new GraphicsPage(_graphics, page => _overlay?.OpenSubPage(page), optiScalerScreen, optiScaler),
             libraryPage,
             performancePage,
-            new ControllerPage(_controller, page => _overlay?.OpenSubPage(page)),
+            new ControllerPage(_controller, page => _overlay?.OpenSubPage(page), closePanel),
         };
         _overlay = new OverlayWindow(pages, _settings, net)
         {

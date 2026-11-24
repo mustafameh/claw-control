@@ -4,6 +4,7 @@
 - [MSI Center M opens instead of Claw Control](#msi-center-m-opens-instead-of-claw-control)
 - ["Claw Control only works on the MSI Claw A8"](#claw-control-only-works-on-the-msi-claw-a8)
 - [The controller doesn't move the selection](#the-controller-doesnt-move-the-selection)
+- [Game buttons stopped responding](#game-buttons-stopped-responding)
 - [A graphics setting doesn't change my game](#a-graphics-setting-doesnt-change-my-game)
 - [RSR, AFMF or another circle is missing](#rsr-afmf-or-another-circle-is-missing)
 - [OptiScaler problems](#optiscaler-problems)
@@ -49,6 +50,21 @@ Claw models, which the author doesn't own and hasn't tested. If you see this on 
   Center M) and try again.
 - The D-pad, A, B, LB / RB and Y work in the panel; touch always works too. The sticks don't
   move the selection (they still reach the game behind the panel).
+
+## Game buttons stopped responding
+
+Open **Controller → Repair game buttons** by touch or with the D-pad. The scan lists buttons
+whose saved assignments match Claw Control's temporary panel controls. An intentional
+assignment can also match, so select only the buttons that are giving you trouble.
+
+If the scan finds nothing and a button still behaves incorrectly, use **Choose buttons manually**.
+Restoring a selected button clears its custom assignment and turbo setting.
+
+Check the buttons you want to repair and press **Restore**. Going back or closing the panel cancels the selection. After you release the button, Claw Control reads
+the assignments again, restores matching selections to their normal game functions, checks
+the result and asks the controller to save it. Open the Controller tab again for the result.
+This works even if the original backup is missing. Previous custom assignments for repaired
+buttons can be set again in the Buttons screen where supported.
 
 ## The game reacts while the panel is open
 

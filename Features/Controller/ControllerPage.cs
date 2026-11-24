@@ -21,6 +21,7 @@ public sealed class ControllerPage : UserControl, IPage
     readonly TextBlock _modeCaption = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 4) };
     readonly FillSlider _lights, _leftRumble, _rightRumble;
     readonly ListRow _gyro, _sticks, _triggers, _buttons;
+    readonly ListRow _repair;
     readonly Panel _rest;
     readonly IPage[] _screens;
     readonly DispatcherTimer _buzz = new() { Interval = TimeSpan.FromMilliseconds(350) };
@@ -31,7 +32,7 @@ public sealed class ControllerPage : UserControl, IPage
     public string Title => "Controller";
     public FrameworkElement View => this;
 
-    public ControllerPage(ControllerService pad, Action<IPage> openSubPage)
+    public ControllerPage(ControllerService pad, Action<IPage> openSubPage, Action closePanel)
     {
         _pad = pad;
         var lights = new LightsScreen(pad);
@@ -39,7 +40,8 @@ public sealed class ControllerPage : UserControl, IPage
         var sticks = new SticksScreen(pad);
         var triggers = new TriggersScreen(pad);
         var buttons = new ButtonsScreen(pad);
-        _screens = [lights, gyro, sticks, triggers, buttons];
+        var repair = new ButtonRepairScreen(pad, closePanel);
+        _screens = [lights, gyro, sticks, triggers, buttons, repair];
 
         // The Quick tab's circles plus Off; the caption names the one under the D-pad.
         var modes = new UniformGrid { Rows = 1, Margin = new Thickness(4, 4, 4, 0) };
@@ -81,7 +83,9 @@ public sealed class ControllerPage : UserControl, IPage
         _buttons.Button.Click += (_, _) => openSubPage(buttons);
 
         // Everything but the mode dims while the controller is off (still changeable).
-        _rest = Ui.Stack(_lights, _leftRumble, _rightRumble, ListRow.Card(_gyro, _sticks, _triggers, _buttons));
+        _repair = new ListRow(Ui.Glyph("", 16), Ui.RowIconBrush, "Repair game buttons");
+        _repair.Button.Click += (_, _) => openSubPage(repair);
+        _rest = Ui.Stack(_lights, _leftRumble, _rightRumble, ListRow.Card(_gyro, _sticks, _triggers, _buttons, _repair));
         Content = Ui.Stack(modes, _modeCaption, _rest);
 
         _pad.Changed += () => Dispatcher.BeginInvoke(Refresh);
@@ -129,6 +133,7 @@ public sealed class ControllerPage : UserControl, IPage
     {
         foreach (var (button, mode) in _modes) button.Tag = mode == _pad.Mode ? "selected" : null;
         UpdateModeCaption();
+        _repair.Value.Text = _pad.RepairStatus;
         _rest.Opacity = _pad.Mode == PadMode.Off ? 0.4 : 1;
 
         if (!_pad.Ready)

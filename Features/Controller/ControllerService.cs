@@ -210,8 +210,65 @@ public sealed class ControllerService
     {
         _panelOpen = false;
         _triggersLive = false;
-        _ = EndPanelMappingAfter(letGo);
-        _ = ApplyPendingMode(letGo);
+        if (_repairOnClose is { } selected)
+        {
+            _repairOnClose = null;
+            _ = RepairAfterClose(letGo, selected.Buttons, selected.Manual);
+        }
+        else
+        {
+            _ = EndPanelMappingAfter(letGo);
+            _ = ApplyPendingMode(letGo);
+        }
+    }
+
+    (PanelButton[] Buttons, bool Manual)? _repairOnClose;
+    internal string RepairStatus { get; private set; } = "";
+    internal string RepairDetail { get; private set; } = "";
+    internal bool RepairBusy { get; private set; }
+    internal event Action<string, string, bool>? RepairFeedback;
+    internal Task<PanelButton[]> ScanPanelMappingsAsync() => _pad.ScanPanelMappingsAsync();
+
+    internal void QueueButtonRepair(PanelButton[] buttons, bool manual)
+    {
+        _repairOnClose = (buttons, manual);
+        RepairBusy = true;
+        RepairStatus = "Repairing buttons…";
+        RepairDetail = RepairStatus;
+        Changed?.Invoke();
+    }
+
+    async Task RepairAfterClose(Task letGo, PanelButton[] selected, bool manual)
+    {
+        try
+        {
+            RepairFeedback?.Invoke("Repairing game buttons…", string.Join(", ", selected.Select(b => b.Name)), false);
+            await EndPanelMappingAfter(letGo);
+            if (_panelOpen) throw new IOException("Panel reopened before repair. Try again.");
+            var restored = await _pad.RepairPanelMappingsAsync(selected, manual);
+            RepairStatus = restored.Length == 0 ? "No changes needed" : "Repair complete";
+            var lines = new List<string>();
+            if (restored.Length > 0)
+                lines.Add("Restored and saved: " + string.Join(", ", restored.Select(b => b.Name)) + ".");
+            var skipped = selected.Except(restored).Select(b => b.Name).ToArray();
+            if (skipped.Length > 0)
+                lines.Add((manual ? "Already at default: " : "No longer using panel mappings: ") + string.Join(", ", skipped) + ".");
+            RepairDetail = string.Join("\n", lines);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Repairing button mappings", ex);
+            RepairStatus = "Repair incomplete. Reopen repair to retry.";
+            RepairDetail = RepairStatus;
+        }
+        finally
+        {
+            RepairBusy = false;
+            Log.Info($"Button repair: {RepairDetail.Replace('\n', ' ')}");
+            RepairFeedback?.Invoke(RepairStatus, RepairStatus == RepairDetail ? "" : RepairDetail, true);
+            Changed?.Invoke();
+            await ApplyPendingMode();
+        }
     }
 
     async Task EndPanelMappingAfter(Task letGo)
@@ -254,30 +311,8 @@ public sealed class ControllerService
     static byte[] PanelMapping(byte[] wanted, bool triggers)
     {
         var b = wanted.ToArray();
-        void Map(int block, bool trigger, int code)
-        {
-            b[block] = 1;
-            b[block + 1] = (byte)((b[block + 1] & ~0x01) | 0x04);  // no turbo; remapped
-            int map = block + (trigger ? 5 : 3);
-            b[map] = (byte)code;
-            b[map + 1] = b[map + 2] = b[map + 3] = b[map + 4] = 0;
-        }
-        // Key blocks in the chip's order: Up Down Left Right LB RB LS RS A B X Y Home View Menu
-        // Camera. Home (the Xbox button, which sends Win + G) and Camera stay as they are.
-        int[] codes =
-        {
-            PanelKeys.Up, PanelKeys.Down, PanelKeys.Left, PanelKeys.Right,
-            PanelKeys.PrevPage, PanelKeys.NextPage, PanelKeys.Nothing, PanelKeys.Nothing,
-            PanelKeys.Accept, PanelKeys.Back, PanelKeys.Action, PanelKeys.Menu,
-            -1, PanelKeys.Nothing, PanelKeys.Nothing, -1,
-        };
-        for (int i = 0; i < codes.Length; i++)
-            if (codes[i] >= 0) Map(Keys + i * 8, false, codes[i]);
-        if (triggers)
-        {
-            Map(Lt, true, PanelKeys.Nothing);
-            Map(Rt, true, PanelKeys.Nothing);
-        }
+        foreach (var button in PanelButton.All)
+            if (triggers || !button.Trigger) button.ApplyPanel(b);
         b[Sensor] = (byte)(b[Sensor] & ~0x01);  // gyro off
         return b;
     }
